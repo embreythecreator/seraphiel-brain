@@ -1,5 +1,5 @@
 {
-  "name": "@hermes-agent/photon-sidecar",
+  "name": "@seraphiel-brain/photon-sidecar",
   "private": true,
   "version": "0.2.0",
   "description": "Spectrum-ts bridge for the Seraphiel Brain Photon platform plugin.",

@@ -30,9 +30,9 @@ interface InsertRefsDetail {
   target: ComposerTarget
 }
 
-const FOCUS_EVENT = 'hermes:composer-focus'
-const INSERT_EVENT = 'hermes:composer-insert'
-const INSERT_REFS_EVENT = 'hermes:composer-insert-refs'
+const FOCUS_EVENT = 'seraphiel:composer-focus'
+const INSERT_EVENT = 'seraphiel:composer-insert'
+const INSERT_REFS_EVENT = 'seraphiel:composer-insert-refs'
 
 let activeTarget: ComposerTarget = 'main'
 

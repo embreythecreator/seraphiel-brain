@@ -73,21 +73,21 @@ class TestFirecrawlClientConfig:
 
     def test_tool_gateway_domain_builds_firecrawl_gateway_origin(self):
         """Shared gateway domain should derive the Firecrawl vendor hostname."""
-        with patch.dict(os.environ, {"TOOL_GATEWAY_DOMAIN": "nousresearch.com"}):
+        with patch.dict(os.environ, {"TOOL_GATEWAY_DOMAIN": "embreythecreator.com"}):
             with patch("tools.web_tools._read_nous_access_token", return_value="nous-token"):
                 with patch("tools.web_tools.Firecrawl") as mock_fc:
                     from tools.web_tools import _get_firecrawl_client
                     result = _get_firecrawl_client()
                     mock_fc.assert_called_once_with(
                         api_key="nous-token",
-                        api_url="https://firecrawl-gateway.nousresearch.com",
+                        api_url="https://firecrawl-gateway.embreythecreator.com",
                     )
                     assert result is mock_fc.return_value
 
     def test_tool_gateway_scheme_can_switch_derived_gateway_origin_to_http(self):
         """Shared gateway scheme should allow local plain-http vendor hosts."""
         with patch.dict(os.environ, {
-            "TOOL_GATEWAY_DOMAIN": "nousresearch.com",
+            "TOOL_GATEWAY_DOMAIN": "embreythecreator.com",
             "TOOL_GATEWAY_SCHEME": "http",
         }):
             with patch("tools.web_tools._read_nous_access_token", return_value="nous-token"):
@@ -96,14 +96,14 @@ class TestFirecrawlClientConfig:
                     result = _get_firecrawl_client()
                     mock_fc.assert_called_once_with(
                         api_key="nous-token",
-                        api_url="http://firecrawl-gateway.nousresearch.com",
+                        api_url="http://firecrawl-gateway.embreythecreator.com",
                     )
                     assert result is mock_fc.return_value
 
     def test_invalid_tool_gateway_scheme_raises(self):
         """Unexpected shared gateway schemes should fail fast."""
         with patch.dict(os.environ, {
-            "TOOL_GATEWAY_DOMAIN": "nousresearch.com",
+            "TOOL_GATEWAY_DOMAIN": "embreythecreator.com",
             "TOOL_GATEWAY_SCHEME": "ftp",
         }):
             with patch("tools.web_tools._read_nous_access_token", return_value="nous-token"):
@@ -115,7 +115,7 @@ class TestFirecrawlClientConfig:
         """An explicit Firecrawl gateway origin should override the shared domain."""
         with patch.dict(os.environ, {
             "FIRECRAWL_GATEWAY_URL": "https://firecrawl-gateway.localhost:3009/",
-            "TOOL_GATEWAY_DOMAIN": "nousresearch.com",
+            "TOOL_GATEWAY_DOMAIN": "embreythecreator.com",
         }):
             with patch("tools.web_tools._read_nous_access_token", return_value="nous-token"):
                 with patch("tools.web_tools.Firecrawl") as mock_fc:
@@ -134,17 +134,17 @@ class TestFirecrawlClientConfig:
                 _get_firecrawl_client()
                 mock_fc.assert_called_once_with(
                     api_key="nous-token",
-                    api_url="https://firecrawl-gateway.nousresearch.com",
+                    api_url="https://firecrawl-gateway.embreythecreator.com",
                 )
 
-    def test_nous_auth_token_respects_hermes_home_override(self, tmp_path):
-        """Auth lookup should read from HERMES_HOME/auth.json, not ~/.hermes/auth.json."""
+    def test_nous_auth_token_respects_seraphiel_home_override(self, tmp_path):
+        """Auth lookup should read from SERAPHIEL_HOME/auth.json, not ~/.seraphiel/auth.json."""
         real_home = tmp_path / "real-home"
-        (real_home / ".hermes").mkdir(parents=True)
+        (real_home / ".seraphiel").mkdir(parents=True)
 
-        hermes_home = tmp_path / "hermes-home"
-        hermes_home.mkdir()
-        (hermes_home / "auth.json").write_text(json.dumps({
+        seraphiel_home = tmp_path / "seraphiel-home"
+        seraphiel_home.mkdir()
+        (seraphiel_home / "auth.json").write_text(json.dumps({
             "providers": {
                 "nous": {
                     "access_token": "nous-token",
@@ -154,7 +154,7 @@ class TestFirecrawlClientConfig:
 
         with patch.dict(os.environ, {
             "HOME": str(real_home),
-            "HERMES_HOME": str(hermes_home),
+            "SERAPHIEL_HOME": str(seraphiel_home),
         }, clear=False):
             import tools.web_tools
             importlib.reload(tools.web_tools)
@@ -245,7 +245,7 @@ class TestBackendSelection:
     """Test suite for _get_backend() backend selection logic.
 
     The backend is configured via config.yaml (web.backend), set by
-    ``hermes tools``.  Falls back to key-based detection for legacy/manual
+    ``seraphiel tools``.  Falls back to key-based detection for legacy/manual
     setups.
     """
 
@@ -655,7 +655,7 @@ class TestCheckWebApiKey:
         monkeypatch,
     ):
         monkeypatch.delenv("TOOL_GATEWAY_USER_TOKEN", raising=False)
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("SERAPHIEL_HOME", str(tmp_path))
         expired_at = "2000-01-01T00:00:00+00:00"
         (tmp_path / "auth.json").write_text(json.dumps({
             "providers": {
@@ -673,7 +673,7 @@ class TestCheckWebApiKey:
             return "fresh-token"
 
         monkeypatch.setattr(
-            "hermes_cli.auth.resolve_nous_access_token",
+            "seraphiel_cli.auth.resolve_nous_access_token",
             _record_refresh,
         )
 

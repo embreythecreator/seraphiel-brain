@@ -6,7 +6,7 @@ author: Seraphiel Brain + Teknium
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
-  hermes:
+  seraphiel:
     tags: [gitnexus, code-intelligence, knowledge-graph, visualization]
     related_skills: [native-mcp, codebase-inspection]
 ---
@@ -201,7 +201,7 @@ rm -rf .claude/
 - **The web UI does NOT create `.claude/` or `CLAUDE.md`.** Those are created by
   `npx gitnexus analyze`. Use `--skip-agents-md` to suppress the markdown files,
   then `rm -rf .claude/` for the rest. These are Claude Code integrations that
-  hermes-agent users don't need.
+  seraphiel-brain users don't need.
 
 - **Browser memory limit.** The web UI loads the entire graph into browser memory.
   Repos with 5k+ files may be sluggish. 30k+ files will likely crash the tab.

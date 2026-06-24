@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@hermes/ink": ["src/types/hermes-ink.d.ts"]
+      "@seraphiel/ink": ["src/types/seraphiel-ink.d.ts"]
     }
   }
 }

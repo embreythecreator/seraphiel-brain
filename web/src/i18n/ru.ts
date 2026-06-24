@@ -55,7 +55,7 @@ export const ru: Translations = {
     closeNavigation: "Закрыть навигацию",
     closeModelTools: "Закрыть модель и инструменты",
     footer: {
-      org: "Nous Research",
+      org: "Seraphiel",
     },
     activeSessionsLabel: "Активные сессии:",
     gatewayStatusLabel: "Статус шлюза:",
@@ -120,8 +120,8 @@ export const ru: Translations = {
     starting: "Запуск",
     startedInBackground: "Запущено в фоне — следите за журналами",
     stopped: "Остановлено",
-    updateHermes: "Обновить Hermes",
-    updatingHermes: "Обновление Hermes…",
+    updateSeraphiel: "Обновить Seraphiel",
+    updatingSeraphiel: "Обновление Seraphiel…",
     waitingForOutput: "Ожидание вывода…",
   },
 
@@ -319,7 +319,7 @@ export const ru: Translations = {
     enableRuntime: "Включить",
     forceReinstall: "Принудительная переустановка (сначала удалить существующую папку)",
     headline:
-      "Поиск, установка, включение и обновление плагинов Hermes (аналог `hermes plugins`).",
+      "Поиск, установка, включение и обновление плагинов Seraphiel (аналог `seraphiel plugins`).",
     identifierLabel: "Git URL или owner/repo",
     inactive: "неактивно",
     installBtn: "Установить",
@@ -336,8 +336,8 @@ export const ru: Translations = {
     providersHint:
       "Записывает memory.provider (пусто = встроенный) и context.engine в config.yaml. Применяется со следующей сессии.",
     refreshDashboard: "Пересканировать расширения панели",
-    removeConfirm: "Удалить этот плагин из ~/.hermes/plugins/?",
-    removeHint: "Удалять можно только плагины, установленные пользователем в ~/.hermes/plugins.",
+    removeConfirm: "Удалить этот плагин из ~/.seraphiel/plugins/?",
+    removeHint: "Удалять можно только плагины, установленные пользователем в ~/.seraphiel/plugins.",
     rescanHeading: "Реестр SPA-плагинов",
     rescanHint: "Пересканируйте после добавления файлов на диск, чтобы боковая панель подхватила новые манифесты.",
     runtimeHeading: "Рантайм шлюза (YAML-плагины)",
@@ -359,7 +359,7 @@ export const ru: Translations = {
     all: "Все",
     categories: "Категории",
     filters: "Фильтры",
-    noSkills: "Навыки не найдены. Навыки загружаются из ~/.hermes/skills/",
+    noSkills: "Навыки не найдены. Навыки загружаются из ~/.seraphiel/skills/",
     noSkillsMatch: "Нет навыков, соответствующих запросу или фильтру.",
     skillCount: "{count} навык{s}",
     resultCount: "{count} результат{s}",
@@ -373,7 +373,7 @@ export const ru: Translations = {
   },
 
   config: {
-    configPath: "~/.hermes/config.yaml",
+    configPath: "~/.seraphiel/config.yaml",
     filters: "Фильтры",
     sections: "Разделы",
     exportConfig: "Экспортировать конфигурацию в JSON",
@@ -485,11 +485,11 @@ export const ru: Translations = {
   achievements: {
     hero: {
       kicker: "Agentic Gamerscore",
-      title: "Hermes Achievements",
+      title: "Seraphiel Achievements",
       subtitle:
-        "Коллекционные значки Hermes, полученные на основе реальной истории сессий. Известные, но ещё не полученные достижения отображаются как «Обнаруженные»; «Секретные» достижения остаются скрытыми до появления первого подходящего поведения.",
+        "Коллекционные значки Seraphiel, полученные на основе реальной истории сессий. Известные, но ещё не полученные достижения отображаются как «Обнаруженные»; «Секретные» достижения остаются скрытыми до появления первого подходящего поведения.",
       scan_subtitle:
-        "Анализ истории сессий Hermes. Первое сканирование может занять 5–10 секунд при большой истории.",
+        "Анализ истории сессий Seraphiel. Первое сканирование может занять 5–10 секунд при большой истории.",
     },
     actions: {
       rescan: "Пересканировать",
@@ -504,7 +504,7 @@ export const ru: Translations = {
       highest_tier: "Высший уровень",
       highest_tier_hint: "Copper → Silver → Gold → Diamond → Olympian",
       latest: "Последнее",
-      latest_hint_empty: "запускайте Hermes чаще",
+      latest_hint_empty: "запускайте Seraphiel чаще",
       none_yet: "Пока нет",
     },
     state: {
@@ -535,10 +535,10 @@ export const ru: Translations = {
       tiers_header: "Уровни",
       secret_header: "Секретные достижения",
       secret_body:
-        "Секретные достижения скрывают свой точный триггер. Как только Hermes обнаруживает связанный сигнал, карточка становится «Обнаруженной» и показывает требование.",
+        "Секретные достижения скрывают свой точный триггер. Как только Seraphiel обнаруживает связанный сигнал, карточка становится «Обнаруженной» и показывает требование.",
       scan_status_header: "Статус сканирования",
       scan_status_body:
-        "Hermes сканирует локальную историю один раз, затем карточки появятся автоматически. Если это занимает несколько секунд — ничего не зависло.",
+        "Seraphiel сканирует локальную историю один раз, затем карточки появятся автоматически. Если это занимает несколько секунд — ничего не зависло.",
       what_scanned_header: "Что сканируется",
       what_scanned_body:
         "Сессии, вызовы инструментов, метаданные моделей, ошибки, достижения и локальное состояние разблокировки.",

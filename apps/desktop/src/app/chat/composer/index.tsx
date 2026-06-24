@@ -13,7 +13,7 @@ import {
   useState
 } from 'react'
 
-import { hermesDirectiveFormatter } from '@/components/assistant-ui/directive-text'
+import { seraphielDirectiveFormatter } from '@/components/assistant-ui/directive-text'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
@@ -43,7 +43,7 @@ import {
 import { $gatewayState, $messages } from '@/store/session'
 import { $threadScrolledUp } from '@/store/thread-scroll'
 
-import { extractDroppedFiles, HERMES_PATHS_MIME, partitionDroppedFiles } from '../hooks/use-composer-actions'
+import { extractDroppedFiles, SERAPHIEL_PATHS_MIME, partitionDroppedFiles } from '../hooks/use-composer-actions'
 
 import { AttachmentList } from './attachments'
 import { ContextMenu } from './context-menu'
@@ -212,7 +212,7 @@ export function ChatBar({
   }, [followUpPlaceholders, newSessionPlaceholders, sessionId])
 
   // When the bar is disabled it's because the gateway isn't open. Distinguish a
-  // cold start ("Starting Hermes...") from a dropped connection we're trying to
+  // cold start ("Starting Seraphiel...") from a dropped connection we're trying to
   // restore (e.g. after the Mac slept) so the stuck state reads as recoverable.
   const placeholder = disabled
     ? gatewayState === 'closed' || gatewayState === 'error'
@@ -620,7 +620,7 @@ export function ChatBar({
       return
     }
 
-    const serialized = hermesDirectiveFormatter.serialize(item)
+    const serialized = seraphielDirectiveFormatter.serialize(item)
     const starter = serialized.endsWith(':')
     const text = starter || serialized.endsWith(' ') ? serialized : `${serialized} `
     const directive = !starter && serialized.match(/^@([^:]+):(.+)$/)
@@ -883,7 +883,7 @@ export function ChatBar({
   }
 
   const handleDragEnter = (event: ReactDragEvent<HTMLFormElement>) => {
-    if (!onAttachDroppedItems || !dragHasAttachments(event.dataTransfer, HERMES_PATHS_MIME)) {
+    if (!onAttachDroppedItems || !dragHasAttachments(event.dataTransfer, SERAPHIEL_PATHS_MIME)) {
       return
     }
 
@@ -896,7 +896,7 @@ export function ChatBar({
   }
 
   const handleDragOver = (event: ReactDragEvent<HTMLFormElement>) => {
-    if (!onAttachDroppedItems || !dragHasAttachments(event.dataTransfer, HERMES_PATHS_MIME)) {
+    if (!onAttachDroppedItems || !dragHasAttachments(event.dataTransfer, SERAPHIEL_PATHS_MIME)) {
       return
     }
 
@@ -953,7 +953,7 @@ export function ChatBar({
   }
 
   const handleInputDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (!dragHasAttachments(event.dataTransfer, HERMES_PATHS_MIME)) {
+    if (!dragHasAttachments(event.dataTransfer, SERAPHIEL_PATHS_MIME)) {
       return
     }
 
@@ -963,7 +963,7 @@ export function ChatBar({
   }
 
   const handleInputDrop = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (!dragHasAttachments(event.dataTransfer, HERMES_PATHS_MIME)) {
+    if (!dragHasAttachments(event.dataTransfer, SERAPHIEL_PATHS_MIME)) {
       return
     }
 

@@ -5,10 +5,10 @@ version: 1.0.0
 description: >
   Discord gateway adapter for Seraphiel Brain.
   Connects to Discord via the discord.py library and relays messages
-  between Discord guilds/DMs and the Hermes agent. Supports voice mode,
+  between Discord guilds/DMs and the Seraphiel agent. Supports voice mode,
   slash commands, free-response channels, role-based DM auth, threads,
   reactions, and channel skill bindings.
-author: NousResearch
+author: embreythecreator
 requires_env:
   - name: DISCORD_BOT_TOKEN
     description: "Discord bot token"

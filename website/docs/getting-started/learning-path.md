@@ -13,7 +13,7 @@ If you haven't installed Seraphiel Brain yet, begin with the [Installation guide
 :::
 
 :::tip First-time provider setup
-First-time users almost always want `hermes setup --portal` — one OAuth covers a model plus the four Tool Gateway tools (search/image/TTS/browser). See [Nous Portal](/integrations/nous-portal).
+First-time users almost always want `seraphiel setup --portal` — one OAuth covers a model plus the four Tool Gateway tools (search/image/TTS/browser). See [Nous Portal](/integrations/nous-portal).
 :::
 
 ## How to Use This Page
@@ -59,7 +59,7 @@ Deploy Seraphiel Brain as a bot on your favorite messaging platform.
 4. [Telegram Setup](/user-guide/messaging/telegram)
 5. [Discord Setup](/user-guide/messaging/discord)
 6. [Voice Mode](/user-guide/features/voice-mode)
-7. [Use Voice Mode with Hermes](/guides/use-voice-mode-with-hermes)
+7. [Use Voice Mode with Seraphiel](/guides/use-voice-mode-with-seraphiel)
 8. [Security](/user-guide/security)
 
 For full project examples, see:
@@ -85,7 +85,7 @@ Cron jobs let Seraphiel Brain run tasks on a schedule — daily summaries, perio
 Extend Seraphiel Brain with your own tools and reusable skill packages.
 
 1. [Plugins](/user-guide/features/plugins)
-2. [Build a Hermes Plugin](/guides/build-a-hermes-plugin)
+2. [Build a Seraphiel Plugin](/guides/build-a-seraphiel-plugin)
 3. [Tools Overview](/user-guide/features/tools)
 4. [Skills Overview](/user-guide/features/skills)
 5. [MCP (Model Context Protocol)](/user-guide/features/mcp)
@@ -95,16 +95,16 @@ Extend Seraphiel Brain with your own tools and reusable skill packages.
 
 :::tip
 For most custom tool creation, start with plugins. The [Adding Tools](/developer-guide/adding-tools)
-page is for built-in Hermes core development, not the usual user/custom-tool path.
+page is for built-in Seraphiel core development, not the usual user/custom-tool path.
 :::
 
 ### "I want to train models"
 
-Use reinforcement learning to fine-tune model behavior with Seraphiel Brain's RL training pipeline (powered by [Atropos](https://github.com/NousResearch/atropos)).
+Use reinforcement learning to fine-tune model behavior with Seraphiel Brain's RL training pipeline (powered by [Atropos](https://github.com/embreythecreator/atropos)).
 
 1. [Quickstart](/getting-started/quickstart)
 2. [Configuration](/user-guide/configuration)
-3. [Atropos RL Environments](https://github.com/NousResearch/atropos) (external)
+3. [Atropos RL Environments](https://github.com/embreythecreator/atropos) (external)
 4. [Provider Routing](/user-guide/features/provider-routing)
 5. [Architecture](/developer-guide/architecture)
 
@@ -136,7 +136,7 @@ Not sure what's available? Here's a quick directory of major features:
 | **MCP** | Connect to external tool servers via Model Context Protocol | [MCP](/user-guide/features/mcp) |
 | **Cron** | Schedule recurring agent tasks | [Cron](/user-guide/features/cron) |
 | **Delegation** | Spawn sub-agents for parallel work | [Delegation](/user-guide/features/delegation) |
-| **Code Execution** | Run Python scripts that call Hermes tools programmatically | [Code Execution](/user-guide/features/code-execution) |
+| **Code Execution** | Run Python scripts that call Seraphiel tools programmatically | [Code Execution](/user-guide/features/code-execution) |
 | **Browser** | Web browsing and scraping | [Browser](/user-guide/features/browser) |
 | **Hooks** | Event-driven callbacks and middleware | [Hooks](/user-guide/features/hooks) |
 | **Batch Processing** | Process multiple inputs in bulk | [Batch Processing](/user-guide/features/batch-processing) |

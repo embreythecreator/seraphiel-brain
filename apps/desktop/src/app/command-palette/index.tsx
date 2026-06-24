@@ -8,7 +8,7 @@ import { HUD_HEADING, HUD_ITEM, HUD_POSITION, HUD_SURFACE, HUD_TEXT } from '@/ap
 import { setTerminalTakeover } from '@/app/right-sidebar/store'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { KbdGroup } from '@/components/ui/kbd'
-import { getHermesConfigRecord, listSessions } from '@/hermes'
+import { getSeraphielConfigRecord, listSessions } from '@/seraphiel'
 import { useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import {
@@ -212,7 +212,7 @@ export function CommandPalette() {
   // the palette is open. react-query handles caching/dedup/staleness.
   const configQuery = useQuery({
     queryKey: ['command-palette', 'config'],
-    queryFn: getHermesConfigRecord,
+    queryFn: getSeraphielConfigRecord,
     enabled: open
   })
 

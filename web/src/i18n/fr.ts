@@ -55,7 +55,7 @@ export const fr: Translations = {
     closeNavigation: "Fermer la navigation",
     closeModelTools: "Fermer modèle et outils",
     footer: {
-      org: "Nous Research",
+      org: "Seraphiel",
     },
     activeSessionsLabel: "Sessions actives:",
     gatewayStatusLabel: "État de la passerelle:",
@@ -120,8 +120,8 @@ export const fr: Translations = {
     starting: "Démarrage",
     startedInBackground: "Démarré en arrière-plan — consultez les journaux pour la progression",
     stopped: "Arrêté",
-    updateHermes: "Mettre à jour Hermes",
-    updatingHermes: "Mise à jour de Hermes…",
+    updateSeraphiel: "Mettre à jour Seraphiel",
+    updatingSeraphiel: "Mise à jour de Seraphiel…",
     waitingForOutput: "En attente de la sortie…",
   },
 
@@ -319,7 +319,7 @@ export const fr: Translations = {
     enableRuntime: "Activer",
     forceReinstall: "Forcer la réinstallation (supprimer d'abord le dossier existant)",
     headline:
-      "Découvrez, installez, activez et mettez à jour les plugins Hermes (parité avec `hermes plugins`).",
+      "Découvrez, installez, activez et mettez à jour les plugins Seraphiel (parité avec `seraphiel plugins`).",
     identifierLabel: "URL Git ou owner/repo",
     inactive: "inactif",
     installBtn: "Installer",
@@ -336,8 +336,8 @@ export const fr: Translations = {
     providersHint:
       "Écrit memory.provider (vide = intégré) et context.engine dans config.yaml. Prend effet à la prochaine session.",
     refreshDashboard: "Re-scanner les extensions du tableau de bord",
-    removeConfirm: "Retirer ce plugin de ~/.hermes/plugins/ ?",
-    removeHint: "Seuls les plugins installés par l'utilisateur sous ~/.hermes/plugins peuvent être supprimés.",
+    removeConfirm: "Retirer ce plugin de ~/.seraphiel/plugins/ ?",
+    removeHint: "Seuls les plugins installés par l'utilisateur sous ~/.seraphiel/plugins peuvent être supprimés.",
     rescanHeading: "Registre des plugins SPA",
     rescanHint: "Re-scannez après avoir ajouté des fichiers sur le disque pour que la barre latérale prenne en compte les nouveaux manifestes.",
     runtimeHeading: "Exécution de la passerelle (plugins YAML)",
@@ -359,7 +359,7 @@ export const fr: Translations = {
     all: "Toutes",
     categories: "Catégories",
     filters: "Filtres",
-    noSkills: "Aucune compétence trouvée. Les compétences sont chargées depuis ~/.hermes/skills/",
+    noSkills: "Aucune compétence trouvée. Les compétences sont chargées depuis ~/.seraphiel/skills/",
     noSkillsMatch: "Aucune compétence ne correspond à votre recherche ou filtre.",
     skillCount: "{count} compétence{s}",
     resultCount: "{count} résultat{s}",
@@ -373,7 +373,7 @@ export const fr: Translations = {
   },
 
   config: {
-    configPath: "~/.hermes/config.yaml",
+    configPath: "~/.seraphiel/config.yaml",
     filters: "Filtres",
     sections: "Sections",
     exportConfig: "Exporter la configuration en JSON",
@@ -484,11 +484,11 @@ export const fr: Translations = {
   achievements: {
     hero: {
       kicker: "Agentic Gamerscore",
-      title: "Hermes Achievements",
+      title: "Seraphiel Achievements",
       subtitle:
-        "Badges Hermes à collectionner, gagnés à partir de l'historique réel des sessions. Les succès connus non terminés sont affichés comme Découverts ; les succès secrets restent cachés jusqu'à l'apparition du premier comportement correspondant.",
+        "Badges Seraphiel à collectionner, gagnés à partir de l'historique réel des sessions. Les succès connus non terminés sont affichés comme Découverts ; les succès secrets restent cachés jusqu'à l'apparition du premier comportement correspondant.",
       scan_subtitle:
-        "Analyse de l'historique des sessions Hermes en cours. Le premier scan peut prendre 5 à 10 secondes sur les historiques volumineux.",
+        "Analyse de l'historique des sessions Seraphiel en cours. Le premier scan peut prendre 5 à 10 secondes sur les historiques volumineux.",
     },
     actions: {
       rescan: "Relancer le scan",
@@ -503,7 +503,7 @@ export const fr: Translations = {
       highest_tier: "Niveau le plus élevé",
       highest_tier_hint: "Copper → Silver → Gold → Diamond → Olympian",
       latest: "Dernier",
-      latest_hint_empty: "utilisez Hermes davantage",
+      latest_hint_empty: "utilisez Seraphiel davantage",
       none_yet: "Aucun pour l'instant",
     },
     state: {
@@ -534,10 +534,10 @@ export const fr: Translations = {
       tiers_header: "Niveaux",
       secret_header: "Succès secrets",
       secret_body:
-        "Les secrets cachent leur déclencheur exact. Dès qu'Hermes détecte un signal lié, la carte passe à Découvert et affiche son exigence.",
+        "Les secrets cachent leur déclencheur exact. Dès qu'Seraphiel détecte un signal lié, la carte passe à Découvert et affiche son exigence.",
       scan_status_header: "État du scan",
       scan_status_body:
-        "Hermes analyse l'historique local une seule fois, puis les cartes apparaîtront automatiquement. Rien n'est bloqué si cela prend quelques secondes.",
+        "Seraphiel analyse l'historique local une seule fois, puis les cartes apparaîtront automatiquement. Rien n'est bloqué si cela prend quelques secondes.",
       what_scanned_header: "Ce qui est analysé",
       what_scanned_body:
         "Sessions, appels d'outils, métadonnées du modèle, erreurs, succès et état de déblocage local.",

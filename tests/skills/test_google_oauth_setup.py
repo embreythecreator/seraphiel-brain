@@ -258,70 +258,70 @@ class TestExchangeAuthCode:
         assert not setup_module.PENDING_AUTH_PATH.exists()
 
 
-class TestHermesConstantsFallback:
-    """Tests for _hermes_home.py fallback when hermes_constants is unavailable."""
+class TestSeraphielConstantsFallback:
+    """Tests for _seraphiel_home.py fallback when seraphiel_constants is unavailable."""
 
     HELPER_PATH = (
         Path(__file__).resolve().parents[2]
-        / "skills/productivity/google-workspace/scripts/_hermes_home.py"
+        / "skills/productivity/google-workspace/scripts/_seraphiel_home.py"
     )
 
     def _load_helper(self, monkeypatch):
-        """Load _hermes_home.py with hermes_constants blocked."""
-        monkeypatch.setitem(sys.modules, "hermes_constants", None)
-        spec = importlib.util.spec_from_file_location("_hermes_home_test", self.HELPER_PATH)
+        """Load _seraphiel_home.py with seraphiel_constants blocked."""
+        monkeypatch.setitem(sys.modules, "seraphiel_constants", None)
+        spec = importlib.util.spec_from_file_location("_seraphiel_home_test", self.HELPER_PATH)
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
         spec.loader.exec_module(module)
         return module
 
-    def test_fallback_uses_hermes_home_env_var(self, monkeypatch, tmp_path):
-        """When hermes_constants is missing, HERMES_HOME comes from env var."""
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "custom-hermes"))
+    def test_fallback_uses_seraphiel_home_env_var(self, monkeypatch, tmp_path):
+        """When seraphiel_constants is missing, SERAPHIEL_HOME comes from env var."""
+        monkeypatch.setenv("SERAPHIEL_HOME", str(tmp_path / "custom-seraphiel"))
         module = self._load_helper(monkeypatch)
-        assert module.get_hermes_home() == tmp_path / "custom-hermes"
+        assert module.get_seraphiel_home() == tmp_path / "custom-seraphiel"
 
-    def test_fallback_defaults_to_dot_hermes(self, monkeypatch):
-        """When hermes_constants is missing and HERMES_HOME unset, default to ~/.hermes."""
-        monkeypatch.delenv("HERMES_HOME", raising=False)
+    def test_fallback_defaults_to_dot_seraphiel(self, monkeypatch):
+        """When seraphiel_constants is missing and SERAPHIEL_HOME unset, default to ~/.seraphiel."""
+        monkeypatch.delenv("SERAPHIEL_HOME", raising=False)
         module = self._load_helper(monkeypatch)
-        assert module.get_hermes_home() == Path.home() / ".hermes"
+        assert module.get_seraphiel_home() == Path.home() / ".seraphiel"
 
-    def test_fallback_ignores_empty_hermes_home(self, monkeypatch):
-        """Empty/whitespace HERMES_HOME is treated as unset."""
-        monkeypatch.setenv("HERMES_HOME", "  ")
+    def test_fallback_ignores_empty_seraphiel_home(self, monkeypatch):
+        """Empty/whitespace SERAPHIEL_HOME is treated as unset."""
+        monkeypatch.setenv("SERAPHIEL_HOME", "  ")
         module = self._load_helper(monkeypatch)
-        assert module.get_hermes_home() == Path.home() / ".hermes"
+        assert module.get_seraphiel_home() == Path.home() / ".seraphiel"
 
-    def test_fallback_display_hermes_home_shortens_path(self, monkeypatch):
-        """Fallback display_hermes_home() uses ~/ shorthand like the real one."""
-        monkeypatch.delenv("HERMES_HOME", raising=False)
+    def test_fallback_display_seraphiel_home_shortens_path(self, monkeypatch):
+        """Fallback display_seraphiel_home() uses ~/ shorthand like the real one."""
+        monkeypatch.delenv("SERAPHIEL_HOME", raising=False)
         module = self._load_helper(monkeypatch)
-        assert module.display_hermes_home() == "~/.hermes"
+        assert module.display_seraphiel_home() == "~/.seraphiel"
 
-    def test_fallback_display_hermes_home_profile_path(self, monkeypatch):
-        """Fallback display_hermes_home() handles profile paths under ~/."""
-        monkeypatch.setenv("HERMES_HOME", str(Path.home() / ".hermes/profiles/coder"))
+    def test_fallback_display_seraphiel_home_profile_path(self, monkeypatch):
+        """Fallback display_seraphiel_home() handles profile paths under ~/."""
+        monkeypatch.setenv("SERAPHIEL_HOME", str(Path.home() / ".seraphiel/profiles/coder"))
         module = self._load_helper(monkeypatch)
-        assert module.display_hermes_home() == "~/.hermes/profiles/coder"
+        assert module.display_seraphiel_home() == "~/.seraphiel/profiles/coder"
 
-    def test_fallback_display_hermes_home_custom_path(self, monkeypatch):
-        """Fallback display_hermes_home() returns full path for non-home locations."""
-        monkeypatch.setenv("HERMES_HOME", "/opt/hermes-custom")
+    def test_fallback_display_seraphiel_home_custom_path(self, monkeypatch):
+        """Fallback display_seraphiel_home() returns full path for non-home locations."""
+        monkeypatch.setenv("SERAPHIEL_HOME", "/opt/seraphiel-custom")
         module = self._load_helper(monkeypatch)
-        assert module.display_hermes_home() == "/opt/hermes-custom"
+        assert module.display_seraphiel_home() == "/opt/seraphiel-custom"
 
-    def test_delegates_to_hermes_constants_when_available(self):
-        """When hermes_constants IS importable, _hermes_home delegates to it."""
+    def test_delegates_to_seraphiel_constants_when_available(self):
+        """When seraphiel_constants IS importable, _seraphiel_home delegates to it."""
         spec = importlib.util.spec_from_file_location(
-            "_hermes_home_happy", self.HELPER_PATH
+            "_seraphiel_home_happy", self.HELPER_PATH
         )
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
         spec.loader.exec_module(module)
-        import hermes_constants
-        assert module.get_hermes_home is hermes_constants.get_hermes_home
-        assert module.display_hermes_home is hermes_constants.display_hermes_home
+        import seraphiel_constants
+        assert module.get_seraphiel_home is seraphiel_constants.get_seraphiel_home
+        assert module.display_seraphiel_home is seraphiel_constants.display_seraphiel_home
 
 
 def _load_setup_module(monkeypatch):
@@ -345,7 +345,7 @@ def _force_deps_missing(monkeypatch):
 class TestInstallDeps:
     """Tests for install_deps() interpreter/installer selection.
 
-    Regression coverage for the Hermes Docker image, whose venv is built with
+    Regression coverage for the Seraphiel Docker image, whose venv is built with
     `uv sync` and ships without pip — `sys.executable -m pip install` fails
     with `No module named pip`, so install_deps() must fall back to uv.
     """
@@ -429,7 +429,7 @@ class TestInstallDeps:
 
         assert module.install_deps() is False
         out = capsys.readouterr().out
-        assert "hermes-agent[google]" in out
+        assert "seraphiel-brain[google]" in out
 
     def test_returns_false_when_uv_fallback_also_fails(self, monkeypatch, capsys):
         """uv present but its install fails → failure surfaced (not swallowed)."""

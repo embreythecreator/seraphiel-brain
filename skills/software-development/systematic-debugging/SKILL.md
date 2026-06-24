@@ -6,7 +6,7 @@ author: Seraphiel Brain (adapted from obra/superpowers)
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
-  hermes:
+  seraphiel:
     tags: [debugging, troubleshooting, problem-solving, root-cause, investigation]
     related_skills: [test-driven-development, plan, subagent-driven-development]
 ---
@@ -319,7 +319,7 @@ If you catch yourself thinking:
 
 ### Investigation Tools
 
-Use these Hermes tools during Phase 1:
+Use these Seraphiel tools during Phase 1:
 
 - **`search_files`** — Find error strings, trace function calls, locate patterns
 - **`read_file`** — Read source code with line numbers for precise analysis

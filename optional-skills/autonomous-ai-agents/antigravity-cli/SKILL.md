@@ -6,17 +6,17 @@ author: Tony Simons (asimons81), Seraphiel Brain
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
-  hermes:
+  seraphiel:
     tags: [Coding-Agent, Antigravity, CLI, Auth, Plugins, Sandbox]
-    related_skills: [grok, codex, claude-code, hermes-agent]
+    related_skills: [grok, codex, claude-code, seraphiel-brain]
 ---
 
 # Antigravity CLI (`agy`)
 
 Operator guide for the Antigravity CLI, invoked as `agy`. Run all `agy`
-commands through the Hermes `terminal` tool; inspect its config and logs with
+commands through the Seraphiel `terminal` tool; inspect its config and logs with
 `read_file`. This skill is reference + procedure — it does not wrap a network
-API, so there is nothing to authenticate from Hermes itself.
+API, so there is nothing to authenticate from Seraphiel itself.
 
 ## When to Use
 

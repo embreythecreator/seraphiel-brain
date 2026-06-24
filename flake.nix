@@ -1,5 +1,5 @@
 {
-  description = "Seraphiel Brain - AI agent framework by Nous Research";
+  description = "Seraphiel Brain - AI agent framework by Seraphiel";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

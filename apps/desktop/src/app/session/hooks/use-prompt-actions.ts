@@ -2,7 +2,7 @@ import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
-import { getProfiles, transcribeAudio } from '@/hermes'
+import { getProfiles, transcribeAudio } from '@/seraphiel'
 import { translateNow, type Translations, useI18n } from '@/i18n'
 import { branchGroupForUser, type ChatMessage, chatMessageText, textPart } from '@/lib/chat-messages'
 import {
@@ -100,7 +100,7 @@ function imageFilenameFromPath(filePath: string): string {
 async function readImageForRemoteAttach(
   filePath: string
 ): Promise<{ contentBase64: string; filename: string } | null> {
-  const dataUrl = await window.hermesDesktop?.readFileDataUrl(filePath)
+  const dataUrl = await window.seraphielDesktop?.readFileDataUrl(filePath)
   const contentBase64 = dataUrl ? base64FromDataUrl(dataUrl) : ''
 
   return contentBase64 ? { contentBase64, filename: imageFilenameFromPath(filePath) } : null
@@ -109,7 +109,7 @@ async function readImageForRemoteAttach(
 // Read a non-image file as a data URL for upload via file.attach. Returns null
 // when the desktop bridge can't read the file (e.g. it was moved/deleted).
 async function readFileDataUrlForAttach(filePath: string): Promise<string | null> {
-  const reader = window.hermesDesktop?.readFileDataUrl
+  const reader = window.seraphielDesktop?.readFileDataUrl
 
   if (!reader) {
     return null
@@ -862,7 +862,7 @@ export function usePromptActions({
         // `session.title` RPC — the same path the TUI uses — NOT the REST
         // renameSession endpoint and NOT the slash worker.
         //
-        // Why not the slash worker: it's a separate HermesCLI subprocess whose
+        // Why not the slash worker: it's a separate SeraphielCLI subprocess whose
         // SQLite write to the shared state.db can silently fail (notably on
         // Windows), and it never refreshes the sidebar.
         //

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { OAuthProvider } from '@/types/hermes'
+import type { OAuthProvider } from '@/types/seraphiel'
 
 import {
   $desktopOnboarding,
@@ -14,7 +14,7 @@ import {
 
 function provider(id: string, name = id): OAuthProvider {
   return {
-    cli_command: `hermes login ${id}`,
+    cli_command: `seraphiel login ${id}`,
     docs_url: `https://example.com/${id}`,
     flow: 'pkce',
     id,
@@ -38,7 +38,7 @@ function baseState(overrides: Partial<DesktopOnboardingState> = {}): DesktopOnbo
 }
 
 function installApiMock(api: (request: { path: string }) => Promise<unknown>) {
-  Object.defineProperty(window, 'hermesDesktop', {
+  Object.defineProperty(window, 'seraphielDesktop', {
     configurable: true,
     value: { api }
   })

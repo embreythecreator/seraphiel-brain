@@ -1,7 +1,7 @@
 """
-Email platform adapter for the Hermes gateway.
+Email platform adapter for the Seraphiel gateway.
 
-Allows users to interact with Hermes by sending emails.
+Allows users to interact with Seraphiel by sending emails.
 Uses IMAP to receive and SMTP to send messages.
 
 Environment variables:
@@ -75,14 +75,14 @@ def _send_imap_id(imap: "imaplib.IMAP4") -> None:
     """
     try:
         try:
-            from hermes_cli import __version__ as _hermes_version
+            from seraphiel_cli import __version__ as _seraphiel_version
         except Exception:  # noqa: BLE001 — keep ID best-effort if import fails
-            _hermes_version = "0"
+            _seraphiel_version = "0"
         imap.xatom(
             "ID",
-            f'("name" "hermes-agent" "version" "{_hermes_version}" '
-            '"vendor" "NousResearch" '
-            '"support-email" "noreply@nousresearch.com")',
+            f'("name" "seraphiel-brain" "version" "{_seraphiel_version}" '
+            '"vendor" "embreythecreator" '
+            '"support-email" "noreply@embreythecreator.com")',
         )
     except Exception as e:  # noqa: BLE001 — best-effort, never fatal
         logger.debug("[Email] IMAP ID command not accepted: %s", e)
@@ -543,7 +543,7 @@ class EmailAdapter(BasePlatformAdapter):
             msg["References"] = original_msg_id
 
         msg["Date"] = formatdate(localtime=True)
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._address.split('@')[1]}>"
+        msg_id = f"<seraphiel-{uuid.uuid4().hex[:12]}@{self._address.split('@')[1]}>"
         msg["Message-ID"] = msg_id
 
         msg.attach(MIMEText(body, "plain", "utf-8"))
@@ -652,7 +652,7 @@ class EmailAdapter(BasePlatformAdapter):
             msg["References"] = original_msg_id
 
         msg["Date"] = formatdate(localtime=True)
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._address.split('@')[1]}>"
+        msg_id = f"<seraphiel-{uuid.uuid4().hex[:12]}@{self._address.split('@')[1]}>"
         msg["Message-ID"] = msg_id
 
         if body:
@@ -733,7 +733,7 @@ class EmailAdapter(BasePlatformAdapter):
             msg["References"] = original_msg_id
 
         msg["Date"] = formatdate(localtime=True)
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._address.split('@')[1]}>"
+        msg_id = f"<seraphiel-{uuid.uuid4().hex[:12]}@{self._address.split('@')[1]}>"
         msg["Message-ID"] = msg_id
 
         if body:

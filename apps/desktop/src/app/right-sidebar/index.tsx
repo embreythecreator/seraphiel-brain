@@ -54,7 +54,7 @@ export function RightSidebarPane({ onActivateFile, onActivateFolder, onChangeCwd
   const canCollapse = Object.values(openState).some(Boolean)
 
   const chooseFolder = async () => {
-    const selected = await window.hermesDesktop?.selectPaths({
+    const selected = await window.seraphielDesktop?.selectPaths({
       defaultPath: hasCwd ? currentCwd : undefined,
       directories: true,
       multiple: false,

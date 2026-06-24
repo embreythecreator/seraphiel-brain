@@ -1,1 +1,1 @@
-# Hermes plugins package
+# Seraphiel plugins package

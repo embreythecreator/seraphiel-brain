@@ -6,7 +6,7 @@ author: Seraphiel Brain
 license: MIT
 platforms: [macos]
 metadata:
-  hermes:
+  seraphiel:
     tags: [FindMy, AirTag, location, tracking, macOS, Apple]
 ---
 

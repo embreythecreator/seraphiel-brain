@@ -14,7 +14,7 @@ Execute plans via delegate_task subagents (2-stage review).
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/software-development/subagent-driven-development` |
+| Source | Optional — install with `seraphiel skills install official/software-development/subagent-driven-development` |
 | Path | `optional-skills/software-development/subagent-driven-development` |
 | Version | `1.1.0` |
 | Author | Seraphiel Brain (adapted from obra/superpowers) |
@@ -26,7 +26,7 @@ Execute plans via delegate_task subagents (2-stage review).
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that Seraphiel loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Subagent-Driven Development

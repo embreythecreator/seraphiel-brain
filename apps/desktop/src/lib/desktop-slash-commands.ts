@@ -31,7 +31,7 @@ const DESKTOP_COMMAND_META = [
   ['/goal', 'Manage the standing goal for this session'],
   ['/help', 'Show desktop slash commands'],
   ['/new', 'Start a new desktop chat'],
-  ['/profile', 'Switch the active Hermes profile'],
+  ['/profile', 'Switch the active Seraphiel profile'],
   ['/queue', 'Queue a prompt for the next turn'],
   ['/resume', 'Resume a saved session'],
   ['/retry', 'Retry the last user message'],
@@ -148,12 +148,12 @@ export function isDesktopSlashCommand(command: string): boolean {
     return false
   }
 
-  return DESKTOP_COMMANDS.has(canonical) || !isKnownHermesSlashCommand(normalized)
+  return DESKTOP_COMMANDS.has(canonical) || !isKnownSeraphielSlashCommand(normalized)
 }
 
 /**
  * An "extension" command is anything the backend surfaces that is NOT one of
- * Hermes' built-in slash commands — i.e. skill commands (`/gif-search`,
+ * Seraphiel' built-in slash commands — i.e. skill commands (`/gif-search`,
  * `/codex`, …) and user-defined quick commands. These are user-activated, so
  * they should appear in the desktop slash palette even though they aren't in
  * the curated `DESKTOP_COMMANDS` allow-list. This mirrors the predicate in
@@ -166,7 +166,7 @@ export function isDesktopSlashExtensionCommand(command: string): boolean {
     return false
   }
 
-  return !isKnownHermesSlashCommand(normalized)
+  return !isKnownSeraphielSlashCommand(normalized)
 }
 
 export function isDesktopSlashSuggestion(command: string): boolean {
@@ -281,6 +281,6 @@ export function filterDesktopCommandsCatalog(catalog: CommandsCatalogLike): Comm
   }
 }
 
-function isKnownHermesSlashCommand(command: string): boolean {
+function isKnownSeraphielSlashCommand(command: string): boolean {
   return DESKTOP_COMMANDS.has(command) || DESKTOP_ALIASES.has(command) || BLOCKED_COMMANDS.has(command)
 }

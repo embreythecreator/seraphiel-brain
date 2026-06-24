@@ -55,7 +55,7 @@ export const ga: Translations = {
     closeNavigation: "Dún an nascleanúint",
     closeModelTools: "Dún an samhail agus na huirlisí",
     footer: {
-      org: "Nous Research",
+      org: "Seraphiel",
     },
     activeSessionsLabel: "Seisiúin gníomhacha:",
     gatewayStatusLabel: "Stádas an gateway:",
@@ -120,8 +120,8 @@ export const ga: Translations = {
     starting: "Ag tosú",
     startedInBackground: "Tosaithe sa chúlra — seiceáil na logaí le haghaidh dul chun cinn",
     stopped: "Stoptha",
-    updateHermes: "Nuashonraigh Hermes",
-    updatingHermes: "Ag nuashonrú Hermes…",
+    updateSeraphiel: "Nuashonraigh Seraphiel",
+    updatingSeraphiel: "Ag nuashonrú Seraphiel…",
     waitingForOutput: "Ag fanacht le haschur…",
   },
 
@@ -327,7 +327,7 @@ export const ga: Translations = {
     enableRuntime: "Cumasaigh",
     forceReinstall: "Cuir iallach ar athshuiteáil (scrios an fillteán atá ann ar dtús)",
     headline:
-      "Faigh, suiteáil, cumasaigh agus nuashonraigh plugins Hermes (paireacht le `hermes plugins`).",
+      "Faigh, suiteáil, cumasaigh agus nuashonraigh plugins Seraphiel (paireacht le `seraphiel plugins`).",
     identifierLabel: "URL Git nó owner/repo",
     inactive: "neamhghníomhach",
     installBtn: "Suiteáil",
@@ -344,8 +344,8 @@ export const ga: Translations = {
     providersHint:
       "Scríobhann memory.provider (folamh = ionsuite) agus context.engine chuig config.yaml. Beidh éifeacht aige sa chéad seisiún eile.",
     refreshDashboard: "Athscan síntí an dashboard",
-    removeConfirm: "Bain an plugin seo ó ~/.hermes/plugins/?",
-    removeHint: "Ní féidir ach plugins atá suiteáilte ag an úsáideoir faoi ~/.hermes/plugins a bhaint.",
+    removeConfirm: "Bain an plugin seo ó ~/.seraphiel/plugins/?",
+    removeHint: "Ní féidir ach plugins atá suiteáilte ag an úsáideoir faoi ~/.seraphiel/plugins a bhaint.",
     rescanHeading: "Clár plugin SPA",
     rescanHint: "Athscan tar éis comhaid a chur leis an diosca ionas go n-aimseoidh barra taoibh an dashboard manifests nua.",
     runtimeHeading: "Runtime gateway (plugins YAML)",
@@ -367,7 +367,7 @@ export const ga: Translations = {
     all: "Gach ceann",
     categories: "Catagóirí",
     filters: "Scagairí",
-    noSkills: "Níor aimsíodh scileanna. Luchtaítear scileanna ó ~/.hermes/skills/",
+    noSkills: "Níor aimsíodh scileanna. Luchtaítear scileanna ó ~/.seraphiel/skills/",
     noSkillsMatch: "Níl scil ar bith ag teacht le do chuardach nó scagaire.",
     skillCount: "{count} scil{s}",
     resultCount: "{count} torad{s}",
@@ -381,7 +381,7 @@ export const ga: Translations = {
   },
 
   config: {
-    configPath: "~/.hermes/config.yaml",
+    configPath: "~/.seraphiel/config.yaml",
     filters: "Scagairí",
     sections: "Ranna",
     exportConfig: "Easpórtáil cumraíocht mar JSON",
@@ -493,11 +493,11 @@ export const ga: Translations = {
   achievements: {
     hero: {
       kicker: "Agentic Gamerscore",
-      title: "Hermes Achievements",
+      title: "Seraphiel Achievements",
       subtitle:
-        "Suaitheantais Hermes inbhailithe a thuilltear ó stair fíor-session. Léirítear gnóthachtálacha aitheanta neamhchríochnaithe mar Discovered; fanann gnóthachtálacha Secret i bhfolach go dtí go bhfeictear an chéad iompar comhoiriúnach.",
+        "Suaitheantais Seraphiel inbhailithe a thuilltear ó stair fíor-session. Léirítear gnóthachtálacha aitheanta neamhchríochnaithe mar Discovered; fanann gnóthachtálacha Secret i bhfolach go dtí go bhfeictear an chéad iompar comhoiriúnach.",
       scan_subtitle:
-        "Stair session Hermes á scanadh. Is féidir leis an gcéad scan 5–10 soicind a thógáil ar staireanna móra.",
+        "Stair session Seraphiel á scanadh. Is féidir leis an gcéad scan 5–10 soicind a thógáil ar staireanna móra.",
     },
     actions: {
       rescan: "Athscan",
@@ -512,7 +512,7 @@ export const ga: Translations = {
       highest_tier: "An leibhéal is airde",
       highest_tier_hint: "Copper → Silver → Gold → Diamond → Olympian",
       latest: "An ceann is déanaí",
-      latest_hint_empty: "rith Hermes níos mó",
+      latest_hint_empty: "rith Seraphiel níos mó",
       none_yet: "Aon cheann fós",
     },
     state: {
@@ -543,10 +543,10 @@ export const ga: Translations = {
       tiers_header: "Leibhéil",
       secret_header: "Gnóthachtálacha rúnda",
       secret_body:
-        "Coinníonn rúin a dtruicear cruinn faoi cheilt. Nuair a fheiceann Hermes comhartha gaolmhar, athraíonn an cárta go Aimsithe agus taispeánann sé a riachtanas.",
+        "Coinníonn rúin a dtruicear cruinn faoi cheilt. Nuair a fheiceann Seraphiel comhartha gaolmhar, athraíonn an cárta go Aimsithe agus taispeánann sé a riachtanas.",
       scan_status_header: "Stádas an scanta",
       scan_status_body:
-        "Scanann Hermes an stair logánta uair amháin, ansin feicfear cártaí go huathoibríoch. Níl aon rud sáinnithe má thógann sé cúpla soicind.",
+        "Scanann Seraphiel an stair logánta uair amháin, ansin feicfear cártaí go huathoibríoch. Níl aon rud sáinnithe má thógann sé cúpla soicind.",
       what_scanned_header: "Cad a scantar",
       what_scanned_body:
         "Sessions, glaonna ar uirlisí, meiteashonraí samhla, earráidí, gnóthachtálacha agus staid díghlasála logánta.",

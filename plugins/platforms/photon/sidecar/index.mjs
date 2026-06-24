@@ -5,16 +5,16 @@
 // SDK is TypeScript-only, so a Node sidecar is unavoidable — there is no
 // Python SDK and no public HTTP message API).
 //
-// Inbound  (gRPC -> Hermes): the SDK's `app.messages` async iterator is a
+// Inbound  (gRPC -> Seraphiel): the SDK's `app.messages` async iterator is a
 //   long-lived gRPC stream. We serialize each `[space, message]` to a
 //   normalized JSON event and stream it to the Python adapter over a
 //   loopback `GET /inbound` (NDJSON). We pause pulling from the stream while
 //   no consumer is attached so a backlog isn't pulled-and-lost before the
 //   gateway connects.
-// Outbound (Hermes -> gRPC): `/send` drives `space.send(...)`; `/typing`
+// Outbound (Seraphiel -> gRPC): `/send` drives `space.send(...)`; `/typing`
 //   sends the documented `typing("start" | "stop")` content builder.
 //
-// Protocol (all requests require `X-Hermes-Sidecar-Token: ${TOKEN}`):
+// Protocol (all requests require `X-Seraphiel-Sidecar-Token: ${TOKEN}`):
 //   - GET  /inbound    -> 200 NDJSON stream; one JSON event per line, blank
 //                         lines are heartbeats. One consumer at a time.
 //   - POST /healthz     -> {"ok": true}
@@ -421,7 +421,7 @@ function tokenOk(header) {
 }
 
 const server = http.createServer(async (req, res) => {
-  if (!tokenOk(req.headers["x-hermes-sidecar-token"])) {
+  if (!tokenOk(req.headers["x-seraphiel-sidecar-token"])) {
     return unauthorized(res);
   }
   // Long-lived inbound NDJSON stream.
@@ -460,7 +460,7 @@ const server = http.createServer(async (req, res) => {
       const space = await resolveSpace(spaceId);
 
       // spectrum-ts infers name + MIME from the file extension; pass
-      // overrides only when Hermes supplied them so a known-good
+      // overrides only when Seraphiel supplied them so a known-good
       // inference isn't clobbered with an empty string.
       const opts = {};
       if (name) opts.name = name;

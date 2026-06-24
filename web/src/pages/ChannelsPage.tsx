@@ -253,7 +253,7 @@ export default function ChannelsPage() {
             <WifiOff className="h-4 w-4 shrink-0" />
             <span>
               The gateway is not running. Configure channels here, then start the
-              gateway with <code className="font-courier">hermes gateway start</code>{" "}
+              gateway with <code className="font-courier">seraphiel gateway start</code>{" "}
               (or the Restart button above).
             </span>
           </CardContent>
@@ -262,7 +262,7 @@ export default function ChannelsPage() {
 
       <p className="text-xs text-muted-foreground">
         {configured} of {platforms.length} channels configured. Credentials are
-        written to <code className="font-courier">~/.hermes/.env</code>; the
+        written to <code className="font-courier">~/.seraphiel/.env</code>; the
         gateway connects each enabled channel on its next restart.
       </p>
 
@@ -599,7 +599,7 @@ function TelegramOnboardingPanel({
     setNewAllowedId("");
   };
 
-  // restart_started only means the `hermes gateway restart` child spawned —
+  // restart_started only means the `seraphiel gateway restart` child spawned —
   // not that the restart will succeed (e.g. systemd linger missing, service
   // manager failure). Poll the action status briefly and surface a non-zero
   // exit via the manual-restart banner. Note: in no-service installs the

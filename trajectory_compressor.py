@@ -45,15 +45,15 @@ from utils import base_url_host_matches, base_url_hostname
 import fire
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.console import Console
-from hermes_constants import OPENROUTER_BASE_URL, get_hermes_home
+from seraphiel_constants import OPENROUTER_BASE_URL, get_seraphiel_home
 from agent.retry_utils import jittered_backoff
 
-# Load .env from HERMES_HOME first, then project root as a dev fallback.
-from hermes_cli.env_loader import load_hermes_dotenv
+# Load .env from SERAPHIEL_HOME first, then project root as a dev fallback.
+from seraphiel_cli.env_loader import load_seraphiel_dotenv
 
-_hermes_home = get_hermes_home()
+_seraphiel_home = get_seraphiel_home()
 _project_env = Path(__file__).parent / ".env"
-load_hermes_dotenv(hermes_home=_hermes_home, project_env=_project_env)
+load_seraphiel_dotenv(seraphiel_home=_seraphiel_home, project_env=_project_env)
 
 
 def _effective_temperature_for_model(
@@ -391,7 +391,7 @@ class TrajectoryCompressor:
             if client is None:
                 raise RuntimeError(
                     f"Provider '{provider}' is not configured. "
-                    f"Check your API key or run: hermes setup")
+                    f"Check your API key or run: seraphiel setup")
             self.client = None  # Not used directly
             self.async_client = None  # Not used directly
         else:
@@ -437,7 +437,7 @@ class TrajectoryCompressor:
         url = self.config.base_url or ""
         if base_url_host_matches(url, "openrouter.ai"):
             return "openrouter"
-        if base_url_host_matches(url, "nousresearch.com"):
+        if base_url_host_matches(url, "embreythecreator.com"):
             return "nous"
         if (
             base_url_hostname(url) == "chatgpt.com"

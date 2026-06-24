@@ -6,7 +6,7 @@ author: Seraphiel Brain
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
-  hermes:
+  seraphiel:
     tags: [design, design-system, tokens, ui, accessibility, wcag, tailwind, dtcg, google]
     related_skills: [popular-web-designs, claude-design, excalidraw, architecture-diagram]
 ---

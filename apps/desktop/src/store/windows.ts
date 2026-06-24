@@ -30,7 +30,7 @@ export function isSecondaryWindow(): boolean {
 // True when running inside the Electron desktop shell (the preload bridge is
 // present). The "open in new window" affordance is desktop-only.
 export function canOpenSessionWindow(): boolean {
-  return typeof window !== 'undefined' && typeof window.hermesDesktop?.openSessionWindow === 'function'
+  return typeof window !== 'undefined' && typeof window.seraphielDesktop?.openSessionWindow === 'function'
 }
 
 // Open (or focus) a standalone OS window for a single chat session. No-ops
@@ -41,7 +41,7 @@ export async function openSessionInNewWindow(sessionId: string): Promise<void> {
   }
 
   try {
-    const result = await window.hermesDesktop.openSessionWindow(sessionId)
+    const result = await window.seraphielDesktop.openSessionWindow(sessionId)
 
     if (!result?.ok) {
       notifyError(new Error(result?.error || 'unknown error'), 'Could not open chat in a new window')

@@ -4,9 +4,9 @@
 //   logFrameEvent (ink.onFrame) → yoga / renderer / diff / optimize / write
 //                                 phases + yoga counters + scroll fast-path
 //
-// Both gate on HERMES_DEV_PERF=1 and dump JSON-lines (default ~/.hermes/perf.log,
-// override HERMES_DEV_PERF_LOG). Tagged { src: 'react' | 'frame' } for jq.
-// HERMES_DEV_PERF_MS (default 2) skips sub-ms idle frames; set 0 to capture all.
+// Both gate on SERAPHIEL_DEV_PERF=1 and dump JSON-lines (default ~/.seraphiel/perf.log,
+// override SERAPHIEL_DEV_PERF_LOG). Tagged { src: 'react' | 'frame' } for jq.
+// SERAPHIEL_DEV_PERF_MS (default 2) skips sub-ms idle frames; set 0 to capture all.
 //
 // Zero cost when unset: PerfPane returns children directly, logFrameEvent is
 // undefined so ink doesn't pay the timing cost.
@@ -15,13 +15,13 @@ import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
-import type { FrameEvent } from '@hermes/ink'
-import { scrollFastPathStats } from '@hermes/ink'
+import type { FrameEvent } from '@seraphiel/ink'
+import { scrollFastPathStats } from '@seraphiel/ink'
 import { Profiler, type ProfilerOnRenderCallback, type ReactNode } from 'react'
 
-const ENABLED = /^(?:1|true|yes|on)$/i.test((process.env.HERMES_DEV_PERF ?? '').trim())
-const THRESHOLD_MS = Number(process.env.HERMES_DEV_PERF_MS ?? '2') || 0
-const LOG_PATH = process.env.HERMES_DEV_PERF_LOG?.trim() || join(homedir(), '.hermes', 'perf.log')
+const ENABLED = /^(?:1|true|yes|on)$/i.test((process.env.SERAPHIEL_DEV_PERF ?? '').trim())
+const THRESHOLD_MS = Number(process.env.SERAPHIEL_DEV_PERF_MS ?? '2') || 0
+const LOG_PATH = process.env.SERAPHIEL_DEV_PERF_LOG?.trim() || join(homedir(), '.seraphiel', 'perf.log')
 
 let logReady = false
 

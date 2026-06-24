@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react'
 import { QueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getGlobalModelInfo } from '@/hermes'
+import { getGlobalModelInfo } from '@/seraphiel'
 import {
   $activeSessionId,
   $currentModel,
@@ -13,7 +13,7 @@ import {
 
 import { useModelControls } from './use-model-controls'
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/seraphiel', () => ({
   getGlobalModelInfo: vi.fn(),
   setGlobalModel: vi.fn()
 }))

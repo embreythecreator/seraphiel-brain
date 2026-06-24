@@ -6,7 +6,7 @@ author: Seraphiel Brain
 license: MIT
 platforms: [macos]
 metadata:
-  hermes:
+  seraphiel:
     tags: [Reminders, tasks, todo, macOS, Apple]
 prerequisites:
   commands: [remindctl]

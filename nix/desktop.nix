@@ -1,21 +1,21 @@
-# nix/desktop.nix — Hermes Desktop (Electron) app build + wrapper
+# nix/desktop.nix — Seraphiel Desktop (Electron) app build + wrapper
 #
-# `hermesAgent` is the fully-built `.#default` package — it ships the
-# `hermes` binary with the venv, runtime PATH, bundled skills/plugins, etc.
+# `seraphielAgent` is the fully-built `.#default` package — it ships the
+# `seraphiel` binary with the venv, runtime PATH, bundled skills/plugins, etc.
 # already wired up.  We point the desktop at it via the existing
-# `HERMES_DESKTOP_HERMES` override env var, so the desktop's resolver
-# uses our fully wrapped binary at step 4 ("existing Hermes CLI").
+# `SERAPHIEL_DESKTOP_SERAPHIEL` override env var, so the desktop's resolver
+# uses our fully wrapped binary at step 4 ("existing Seraphiel CLI").
 # No reimplementation of the agent resolution in this wrapper.
-{ pkgs, lib, stdenv, makeWrapper, hermesNpmLib, electron, hermesAgent, ... }:
+{ pkgs, lib, stdenv, makeWrapper, seraphielNpmLib, electron, seraphielAgent, ... }:
 let
-  npm = hermesNpmLib.mkNpmPassthru { folder = "apps/desktop"; attr = "desktop"; pname = "hermes-desktop"; };
+  npm = seraphielNpmLib.mkNpmPassthru { folder = "apps/desktop"; attr = "desktop"; pname = "seraphiel-desktop"; };
 
   packageJson = builtins.fromJSON (builtins.readFile (npm.src + "/apps/desktop/package.json"));
   version = packageJson.version;
 
   # Build the renderer (dist/ + electron/ + package.json).
   renderer = pkgs.buildNpmPackage (npm // {
-    pname = "hermes-desktop-renderer";
+    pname = "seraphiel-desktop-renderer";
     inherit version;
 
     doCheck = false;
@@ -67,7 +67,7 @@ in
 
 # Electron wrapper: nixpkgs' electron binary pointed at the renderer dir.
 stdenv.mkDerivation {
-  pname = "hermes-desktop";
+  pname = "seraphiel-desktop";
   inherit version;
 
   dontUnpack = true;
@@ -78,18 +78,18 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/share/hermes-desktop $out/bin
-    cp -r ${renderer}/* $out/share/hermes-desktop/
+    mkdir -p $out/share/seraphiel-desktop $out/bin
+    cp -r ${renderer}/* $out/share/seraphiel-desktop/
 
     # Wrap the nixpkgs electron binary to launch our app.  Set
-    # HERMES_DESKTOP_HERMES to the absolute path of the nix-built `hermes`
-    # binary so the desktop's resolver step 4 ("existing Hermes CLI on
+    # SERAPHIEL_DESKTOP_SERAPHIEL to the absolute path of the nix-built `seraphiel`
+    # binary so the desktop's resolver step 4 ("existing Seraphiel CLI on
     # PATH") uses our fully wrapped binary — venv with all deps,
     # bundled skills/plugins, runtime PATH (ripgrep/git/ffmpeg/etc).
     # No reimplementation of the agent resolver in the wrapper.
-    makeWrapper ${lib.getExe electron} $out/bin/hermes-desktop \
-      --add-flags "$out/share/hermes-desktop" \
-      --set HERMES_DESKTOP_HERMES "${lib.getExe hermesAgent}" \
+    makeWrapper ${lib.getExe electron} $out/bin/seraphiel-desktop \
+      --add-flags "$out/share/seraphiel-desktop" \
+      --set SERAPHIEL_DESKTOP_SERAPHIEL "${lib.getExe seraphielAgent}" \
       --set ELECTRON_IS_DEV 0
 
     runHook postInstall
@@ -101,9 +101,9 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Native Electron desktop shell for Seraphiel Brain";
-    homepage = "https://github.com/NousResearch/hermes-agent";
+    homepage = "https://github.com/embreythecreator/seraphiel-brain";
     license = licenses.mit;
     platforms = platforms.unix;
-    mainProgram = "hermes-desktop";
+    mainProgram = "seraphiel-desktop";
   };
 }

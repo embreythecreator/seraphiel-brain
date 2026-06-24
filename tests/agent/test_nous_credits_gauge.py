@@ -4,7 +4,7 @@ Covers the monthly_credits denominator path added when the portal /api/oauth/acc
 subscription block began carrying `monthly_credits`. Magnitudes-only fallback, clamp,
 and the non-finite / rollover guards (surfaced by adversarial review) are all asserted.
 """
-from hermes_cli.nous_account import (
+from seraphiel_cli.nous_account import (
     NousPortalAccountInfo,
     NousPaidServiceAccessInfo,
     NousPortalSubscriptionInfo,
@@ -17,7 +17,7 @@ def _acct(**kwargs):
     kwargs.setdefault("logged_in", True)
     kwargs.setdefault("source", "account_api")
     kwargs.setdefault("fresh", True)
-    kwargs.setdefault("portal_base_url", "https://portal.nousresearch.com")
+    kwargs.setdefault("portal_base_url", "https://portal.embreythecreator.com")
     return NousPortalAccountInfo(**kwargs)
 
 

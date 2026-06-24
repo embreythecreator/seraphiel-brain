@@ -14,7 +14,7 @@ description: "使用 GitNexus 为代码库建立索引，并通过 Web UI + Clou
 
 | | |
 |---|---|
-| 来源 | 可选 — 使用 `hermes skills install official/research/gitnexus-explorer` 安装 |
+| 来源 | 可选 — 使用 `seraphiel skills install official/research/gitnexus-explorer` 安装 |
 | 路径 | `optional-skills/research/gitnexus-explorer` |
 | 版本 | `1.0.0` |
 | 作者 | Seraphiel Brain + Teknium |
@@ -26,7 +26,7 @@ description: "使用 GitNexus 为代码库建立索引，并通过 Web UI + Clou
 ## 参考：完整 SKILL.md
 
 :::info
-以下是 Hermes 在触发此 skill 时加载的完整 skill 定义。这是 skill 激活时 agent 所看到的指令内容。
+以下是 Seraphiel 在触发此 skill 时加载的完整 skill 定义。这是 skill 激活时 agent 所看到的指令内容。
 :::
 
 # GitNexus Explorer

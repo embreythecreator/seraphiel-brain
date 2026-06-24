@@ -1,4 +1,4 @@
-"""Tests for HermesCLI initialization -- catches configuration bugs
+"""Tests for SeraphielCLI initialization -- catches configuration bugs
 that only manifest at runtime (not in mocked unit tests)."""
 
 import os
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def _make_cli(env_overrides=None, config_overrides=None, **kwargs):
-    """Create a HermesCLI instance with minimal mocking."""
+    """Create a SeraphielCLI instance with minimal mocking."""
     import importlib
 
     _clean_config = {
@@ -25,7 +25,7 @@ def _make_cli(env_overrides=None, config_overrides=None, **kwargs):
     }
     if config_overrides:
         _clean_config.update(config_overrides)
-    clean_env = {"LLM_MODEL": "", "HERMES_MAX_ITERATIONS": ""}
+    clean_env = {"LLM_MODEL": "", "SERAPHIEL_MAX_ITERATIONS": ""}
     if env_overrides:
         clean_env.update(env_overrides)
     prompt_toolkit_stubs = {
@@ -51,7 +51,7 @@ def _make_cli(env_overrides=None, config_overrides=None, **kwargs):
         _cli_mod = importlib.reload(_cli_mod)
         with patch.object(_cli_mod, "get_tool_definitions", return_value=[]), \
              patch.dict(_cli_mod.__dict__, {"CLI_CONFIG": _clean_config}):
-            return _cli_mod.HermesCLI(**kwargs)
+            return _cli_mod.SeraphielCLI(**kwargs)
 
 
 class TestMaxTurnsResolution:
@@ -73,12 +73,12 @@ class TestMaxTurnsResolution:
 
     def test_env_var_max_turns(self):
         """Env var is used when config file doesn't set max_turns."""
-        cli_obj = _make_cli(env_overrides={"HERMES_MAX_ITERATIONS": "42"})
+        cli_obj = _make_cli(env_overrides={"SERAPHIEL_MAX_ITERATIONS": "42"})
         assert cli_obj.max_turns == 42
 
     def test_invalid_env_var_max_turns_falls_back_to_default(self):
         """Invalid env values should not crash CLI init."""
-        cli_obj = _make_cli(env_overrides={"HERMES_MAX_ITERATIONS": "not-a-number"})
+        cli_obj = _make_cli(env_overrides={"SERAPHIEL_MAX_ITERATIONS": "not-a-number"})
         assert cli_obj.max_turns == 90
 
     def test_legacy_root_max_turns_is_used_when_agent_key_exists_without_value(self):
@@ -108,11 +108,11 @@ class TestFallbackChainInit:
             "fallback_providers": [
                 {"provider": "openrouter", "model": "anthropic/claude-sonnet-4.6"},
             ],
-            "fallback_model": {"provider": "nous", "model": "Hermes-4"},
+            "fallback_model": {"provider": "nous", "model": "Seraphiel-4"},
         })
         assert cli._fallback_model == [
             {"provider": "openrouter", "model": "anthropic/claude-sonnet-4.6"},
-            {"provider": "nous", "model": "Hermes-4"},
+            {"provider": "nous", "model": "Seraphiel-4"},
         ]
 
 
@@ -280,11 +280,11 @@ class TestHistoryDisplay:
         output = capsys.readouterr().out
 
         assert "[You #1]" in output
-        assert "[Hermes #2]" in output
+        assert "[Seraphiel #2]" in output
         assert "(requested 2 tool calls)" in output
         assert "[Tools]" in output
         assert "(2 tool messages hidden)" in output
-        assert "[Hermes #3]" in output
+        assert "[Seraphiel #3]" in output
         assert "[You #4]" in output
         assert "[You #5]" not in output
         assert "A" * 250 in output
@@ -304,7 +304,7 @@ class TestHistoryDisplay:
             {
                 "id": "20260401_201329_d85961",
                 "title": "Checking Running Seraphiel Brain",
-                "preview": "check running gateways for hermes agent",
+                "preview": "check running gateways for seraphiel agent",
                 "last_active": 0,
             },
         ]
@@ -332,7 +332,7 @@ class TestHistoryDisplay:
             {
                 "id": "20260401_201329_d85961",
                 "title": "Checking Running Seraphiel Brain",
-                "preview": "check running gateways for hermes agent",
+                "preview": "check running gateways for seraphiel agent",
                 "last_active": 0,
             },
         ]
@@ -345,9 +345,9 @@ class TestHistoryDisplay:
         assert "Use /resume" in output
         assert "session title" in output
 
-    def test_resume_updates_hermes_session_id_env_and_context(self, tmp_path):
+    def test_resume_updates_seraphiel_session_id_env_and_context(self, tmp_path):
         from gateway.session_context import _UNSET, _VAR_MAP, get_session_env
-        from hermes_state import SessionDB
+        from seraphiel_state import SessionDB
 
         cli = _make_cli()
         cli.session_id = "current_session"
@@ -358,19 +358,19 @@ class TestHistoryDisplay:
         cli._session_db.create_session("target_session", "cli")
         cli._session_db.append_message("target_session", "user", "hello from resumed session")
 
-        os.environ["HERMES_SESSION_ID"] = "current_session"
-        _VAR_MAP["HERMES_SESSION_ID"].set("current_session")
+        os.environ["SERAPHIEL_SESSION_ID"] = "current_session"
+        _VAR_MAP["SERAPHIEL_SESSION_ID"].set("current_session")
 
         try:
             cli._handle_resume_command("/resume target_session")
 
             assert cli.session_id == "target_session"
-            assert os.environ["HERMES_SESSION_ID"] == "target_session"
-            assert get_session_env("HERMES_SESSION_ID") == "target_session"
+            assert os.environ["SERAPHIEL_SESSION_ID"] == "target_session"
+            assert get_session_env("SERAPHIEL_SESSION_ID") == "target_session"
         finally:
             cli._session_db.close()
-            os.environ.pop("HERMES_SESSION_ID", None)
-            _VAR_MAP["HERMES_SESSION_ID"].set(_UNSET)
+            os.environ.pop("SERAPHIEL_SESSION_ID", None)
+            _VAR_MAP["SERAPHIEL_SESSION_ID"].set(_UNSET)
 
     def test_resume_list_shows_full_long_titles(self, capsys):
         """Long session titles render in full in the /resume table — not
@@ -415,7 +415,7 @@ class TestHistoryDisplay:
             {
                 "id": "20260401_201329_d85961",
                 "title": "Checking Running Seraphiel Brain",
-                "preview": "check running gateways for hermes agent",
+                "preview": "check running gateways for seraphiel agent",
                 "last_active": 0,
             },
         ]
@@ -439,7 +439,7 @@ class TestHistoryDisplay:
             {
                 "id": "20260401_201329_d85961",
                 "title": "Checking Running Seraphiel Brain",
-                "preview": "check running gateways for hermes agent",
+                "preview": "check running gateways for seraphiel agent",
                 "last_active": 0,
             },
         ]
@@ -491,11 +491,11 @@ class TestRootLevelProviderOverride:
         """model.provider takes priority — root-level provider is only a fallback."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        seraphiel_home = tmp_path / ".seraphiel"
+        seraphiel_home.mkdir()
+        monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
 
-        config_path = hermes_home / "config.yaml"
+        config_path = seraphiel_home / "config.yaml"
         config_path.write_text(yaml.safe_dump({
             "provider": "opencode-go",  # stale root-level key
             "model": {
@@ -505,7 +505,7 @@ class TestRootLevelProviderOverride:
         }))
 
         import cli
-        monkeypatch.setattr(cli, "_hermes_home", hermes_home)
+        monkeypatch.setattr(cli, "_seraphiel_home", seraphiel_home)
         cfg = cli.load_cli_config()
 
         assert cfg["model"]["provider"] == "openrouter"
@@ -514,11 +514,11 @@ class TestRootLevelProviderOverride:
         """Legacy root-level provider still populates model.provider in the CLI loader."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        seraphiel_home = tmp_path / ".seraphiel"
+        seraphiel_home.mkdir()
+        monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
 
-        config_path = hermes_home / "config.yaml"
+        config_path = seraphiel_home / "config.yaml"
         config_path.write_text(yaml.safe_dump({
             "provider": "opencode-go",  # stale root key
             "model": {
@@ -528,7 +528,7 @@ class TestRootLevelProviderOverride:
         }))
 
         import cli
-        monkeypatch.setattr(cli, "_hermes_home", hermes_home)
+        monkeypatch.setattr(cli, "_seraphiel_home", seraphiel_home)
         cfg = cli.load_cli_config()
 
         assert cfg["model"]["provider"] == "opencode-go"
@@ -537,11 +537,11 @@ class TestRootLevelProviderOverride:
         """Legacy root-level base_url still populates model.base_url in the CLI loader."""
         import yaml
 
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        seraphiel_home = tmp_path / ".seraphiel"
+        seraphiel_home.mkdir()
+        monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
 
-        config_path = hermes_home / "config.yaml"
+        config_path = seraphiel_home / "config.yaml"
         config_path.write_text(yaml.safe_dump({
             "base_url": "https://example.com/v1",
             "model": {
@@ -550,14 +550,14 @@ class TestRootLevelProviderOverride:
         }))
 
         import cli
-        monkeypatch.setattr(cli, "_hermes_home", hermes_home)
+        monkeypatch.setattr(cli, "_seraphiel_home", seraphiel_home)
         cfg = cli.load_cli_config()
 
         assert cfg["model"]["base_url"] == "https://example.com/v1"
 
     def test_normalize_root_model_keys_moves_to_model(self):
         """_normalize_root_model_keys migrates root keys into model section."""
-        from hermes_cli.config import _normalize_root_model_keys
+        from seraphiel_cli.config import _normalize_root_model_keys
 
         config = {
             "provider": "opencode-go",
@@ -576,7 +576,7 @@ class TestRootLevelProviderOverride:
 
     def test_normalize_root_model_keys_does_not_override_existing(self):
         """Existing model.provider is never overridden by root-level key."""
-        from hermes_cli.config import _normalize_root_model_keys
+        from seraphiel_cli.config import _normalize_root_model_keys
 
         config = {
             "provider": "stale-provider",
@@ -591,7 +591,7 @@ class TestRootLevelProviderOverride:
 
     def test_normalize_root_context_length_migrates_to_model(self):
         """Root-level context_length is migrated into the model section."""
-        from hermes_cli.config import _normalize_root_model_keys
+        from seraphiel_cli.config import _normalize_root_model_keys
 
         config = {
             "context_length": 128000,
@@ -605,7 +605,7 @@ class TestRootLevelProviderOverride:
 
     def test_normalize_root_context_length_does_not_override_existing(self):
         """Existing model.context_length is not overridden by root-level key."""
-        from hermes_cli.config import _normalize_root_model_keys
+        from seraphiel_cli.config import _normalize_root_model_keys
 
         config = {
             "context_length": 256000,
@@ -620,7 +620,7 @@ class TestRootLevelProviderOverride:
 
     def test_normalize_root_context_length_with_string_model(self):
         """Root-level context_length is migrated even when model is a string."""
-        from hermes_cli.config import _normalize_root_model_keys
+        from seraphiel_cli.config import _normalize_root_model_keys
 
         config = {
             "context_length": 128000,

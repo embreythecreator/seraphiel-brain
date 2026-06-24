@@ -6,7 +6,7 @@ author: Seraphiel Brain
 license: MIT
 platforms: [macos]
 metadata:
-  hermes:
+  seraphiel:
     tags: [Notes, Apple, macOS, note-taking]
     related_skills: [obsidian]
 prerequisites:

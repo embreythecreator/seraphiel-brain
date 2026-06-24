@@ -14,7 +14,7 @@ Index a codebase with GitNexus and serve an interactive knowledge graph via web 
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/research/gitnexus-explorer` |
+| Source | Optional — install with `seraphiel skills install official/research/gitnexus-explorer` |
 | Path | `optional-skills/research/gitnexus-explorer` |
 | Version | `1.0.0` |
 | Author | Seraphiel Brain + Teknium |
@@ -26,7 +26,7 @@ Index a codebase with GitNexus and serve an interactive knowledge graph via web 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that Seraphiel loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # GitNexus Explorer
@@ -219,7 +219,7 @@ rm -rf .claude/
 - **The web UI does NOT create `.claude/` or `CLAUDE.md`.** Those are created by
   `npx gitnexus analyze`. Use `--skip-agents-md` to suppress the markdown files,
   then `rm -rf .claude/` for the rest. These are Claude Code integrations that
-  hermes-agent users don't need.
+  seraphiel-brain users don't need.
 
 - **Browser memory limit.** The web UI loads the entire graph into browser memory.
   Repos with 5k+ files may be sluggish. 30k+ files will likely crash the tab.

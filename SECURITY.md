@@ -6,8 +6,8 @@ scope for vulnerability reports.
 
 ## 1. Reporting a Vulnerability
 
-Report privately via [GitHub Security Advisories](https://github.com/NousResearch/hermes-agent/security/advisories/new)
-or **security@nousresearch.com**. Do not open public issues for
+Report privately via [GitHub Security Advisories](https://github.com/embreythecreator/seraphiel-brain/security/advisories/new)
+or **security@embreythecreator.com**. Do not open public issues for
 security vulnerabilities. **Seraphiel Brain does not operate a bug
 bounty program.**
 
@@ -16,7 +16,7 @@ A useful report includes:
 - A concise description and severity assessment.
 - The affected component, identified by file path and line range
   (e.g. `path/to/file.py:120-145`).
-- Environment details (`hermes version`, commit SHA, OS, Python
+- Environment details (`seraphiel version`, commit SHA, OS, Python
   version).
 - A reproduction against `main` or the latest release.
 - A statement of which trust boundary in §2 is crossed.
@@ -274,14 +274,14 @@ private-disclosure channel and don't receive advisories.
   that explicitly disable protections: `--insecure` and equivalent
   flags on the dashboard or other components, disabled approvals,
   local backend in production, development profiles that bypass
-  hermes-home security, and similar. Reports against those
+  seraphiel-home security, and similar. Reports against those
   configurations are not vulnerabilities — that's the flag's job.
 - **Community-contributed skills and plugins.** Third-party skills
   (including the community skills repository) and third-party
   plugins are in the operator's review surface, not Seraphiel Brain's
   trust surface (§2.4, §2.5). A skill or plugin doing something
   malicious is the expected failure mode of one that wasn't
-  reviewed, not a vulnerability in Seraphiel Brain. Bugs in Hermes
+  reviewed, not a vulnerability in Seraphiel Brain. Bugs in Seraphiel
   Agent's skill-install or plugin-install path that prevent the
   operator from seeing what they're installing are in scope under
   §3.1.
@@ -326,6 +326,6 @@ that:
 - **Coordinated disclosure window:** 90 days from report, or until a
   fix is released, whichever comes first.
 - **Channel:** the GHSA thread or email correspondence with
-  security@nousresearch.com.
+  security@embreythecreator.com.
 - **Credit:** reporters are credited in release notes unless
   anonymity is requested.

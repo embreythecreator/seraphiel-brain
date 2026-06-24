@@ -176,7 +176,7 @@ export default function UserStoriesCollage(): JSX.Element {
         <p>
           What the Seraphiel Brain community is actually building. Every tile
           below links to a real post, issue, video, or gist where someone
-          describes how they use Hermes &mdash; scraped from X, GitHub, Reddit,
+          describes how they use Seraphiel &mdash; scraped from X, GitHub, Reddit,
           Hacker News, YouTube, blogs, and podcasts.
         </p>
         <div className={styles.meta}>
@@ -293,17 +293,17 @@ export default function UserStoriesCollage(): JSX.Element {
       )}
 
       <div className={styles.footer}>
-        Built something with Hermes?{' '}
+        Built something with Seraphiel?{' '}
         <a
-          href="https://github.com/NousResearch/hermes-agent/edit/main/website/src/data/userStories.json"
+          href="https://github.com/embreythecreator/seraphiel-brain/edit/main/website/src/data/userStories.json"
           target="_blank"
           rel="noopener noreferrer"
         >
           Add your story to this page
         </a>{' '}
         by editing <code>userStories.json</code>, or post it in the{' '}
-        <a href="https://discord.gg/NousResearch" target="_blank" rel="noopener noreferrer">
-          Nous Research Discord
+        <a href="https://discord.gg/embreythecreator" target="_blank" rel="noopener noreferrer">
+          Seraphiel Discord
         </a>{' '}
         and we&apos;ll pick it up.
       </div>

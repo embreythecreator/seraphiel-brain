@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import ShikiHighlighter from 'react-shiki'
 import { Streamdown } from 'streamdown'
 
-import { HERMES_PATHS_MIME } from '@/app/chat/hooks/use-composer-actions'
+import { SERAPHIEL_PATHS_MIME } from '@/app/chat/hooks/use-composer-actions'
 import { PageLoader } from '@/components/page-loader'
 import { translateNow, useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -180,13 +180,13 @@ function looksBinaryBytes(bytes: Uint8Array) {
 }
 
 async function readTextPreview(filePath: string) {
-  if (window.hermesDesktop.readFileText) {
+  if (window.seraphielDesktop.readFileText) {
     try {
-      return await window.hermesDesktop.readFileText(filePath)
+      return await window.seraphielDesktop.readFileText(filePath)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
 
-      if (!message.includes("No handler registered for 'hermes:readFileText'")) {
+      if (!message.includes("No handler registered for 'seraphiel:readFileText'")) {
         throw error
       }
     }
@@ -194,7 +194,7 @@ async function readTextPreview(filePath: string) {
 
   // Back-compat for a running Electron process whose preload hasn't been
   // restarted since readFileText was added. readFileDataUrl already existed.
-  const dataUrl = await window.hermesDesktop.readFileDataUrl(filePath)
+  const dataUrl = await window.seraphielDesktop.readFileDataUrl(filePath)
   const [, metadata = '', data = ''] = dataUrl.match(/^data:([^,]*),(.*)$/) || []
   const base64 = metadata.includes(';base64')
   const mimeType = metadata.replace(/;base64$/, '') || undefined
@@ -327,7 +327,7 @@ function startLineDrag(event: ReactDragEvent<HTMLElement>, filePath: string, { e
   const lineEnd = end > start ? end : undefined
   const label = lineEnd ? `${filePath}:${start}-${end}` : `${filePath}:${start}`
 
-  event.dataTransfer.setData(HERMES_PATHS_MIME, JSON.stringify([{ line: start, lineEnd, path: filePath }]))
+  event.dataTransfer.setData(SERAPHIEL_PATHS_MIME, JSON.stringify([{ line: start, lineEnd, path: filePath }]))
   event.dataTransfer.setData('text/plain', label)
   event.dataTransfer.effectAllowed = 'copy'
 }
@@ -448,7 +448,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
         if (isImage) {
           // Prefer bytes the caller already handed us (a pasted/dropped
           // screenshot) over re-reading a path that may be transient/unreadable.
-          const dataUrl = target.dataUrl || (await window.hermesDesktop.readFileDataUrl(filePath))
+          const dataUrl = target.dataUrl || (await window.seraphielDesktop.readFileDataUrl(filePath))
 
           if (active) {
             setState({ dataUrl, loading: false })

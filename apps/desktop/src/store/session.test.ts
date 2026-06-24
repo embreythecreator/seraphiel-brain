@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { SessionInfo } from '@/types/hermes'
+import type { SessionInfo } from '@/types/seraphiel'
 
 import {
   $activeSessionId,
@@ -147,18 +147,18 @@ describe('workspaceCwdForNewSession', () => {
     applyConfiguredDefaultProjectDir(null)
     $currentCwd.set('')
     $activeSessionId.set(null)
-    window.localStorage.removeItem('hermes.desktop.workspace-cwd')
+    window.localStorage.removeItem('seraphiel.desktop.workspace-cwd')
   })
 
   it('prefers the configured default over the sticky remembered workspace', () => {
-    window.localStorage.setItem('hermes.desktop.workspace-cwd', '/home/user/sticky')
+    window.localStorage.setItem('seraphiel.desktop.workspace-cwd', '/home/user/sticky')
     applyConfiguredDefaultProjectDir('/home/user/configured')
 
     expect(workspaceCwdForNewSession()).toBe('/home/user/configured')
   })
 
   it('falls back to the remembered workspace when no configured default is set', () => {
-    window.localStorage.setItem('hermes.desktop.workspace-cwd', '/home/user/sticky')
+    window.localStorage.setItem('seraphiel.desktop.workspace-cwd', '/home/user/sticky')
 
     expect(workspaceCwdForNewSession()).toBe('/home/user/sticky')
   })

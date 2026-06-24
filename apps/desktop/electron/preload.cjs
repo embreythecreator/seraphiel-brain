@@ -1,33 +1,33 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
-contextBridge.exposeInMainWorld('hermesDesktop', {
-  getConnection: profile => ipcRenderer.invoke('hermes:connection', profile),
-  revalidateConnection: () => ipcRenderer.invoke('hermes:connection:revalidate'),
-  touchBackend: profile => ipcRenderer.invoke('hermes:backend:touch', profile),
-  getGatewayWsUrl: profile => ipcRenderer.invoke('hermes:gateway:ws-url', profile),
-  openSessionWindow: sessionId => ipcRenderer.invoke('hermes:window:openSession', sessionId),
-  getBootProgress: () => ipcRenderer.invoke('hermes:boot-progress:get'),
-  getConnectionConfig: profile => ipcRenderer.invoke('hermes:connection-config:get', profile),
-  saveConnectionConfig: payload => ipcRenderer.invoke('hermes:connection-config:save', payload),
-  applyConnectionConfig: payload => ipcRenderer.invoke('hermes:connection-config:apply', payload),
-  testConnectionConfig: payload => ipcRenderer.invoke('hermes:connection-config:test', payload),
-  probeConnectionConfig: remoteUrl => ipcRenderer.invoke('hermes:connection-config:probe', remoteUrl),
-  oauthLoginConnectionConfig: remoteUrl => ipcRenderer.invoke('hermes:connection-config:oauth-login', remoteUrl),
-  oauthLogoutConnectionConfig: remoteUrl => ipcRenderer.invoke('hermes:connection-config:oauth-logout', remoteUrl),
+contextBridge.exposeInMainWorld('seraphielDesktop', {
+  getConnection: profile => ipcRenderer.invoke('seraphiel:connection', profile),
+  revalidateConnection: () => ipcRenderer.invoke('seraphiel:connection:revalidate'),
+  touchBackend: profile => ipcRenderer.invoke('seraphiel:backend:touch', profile),
+  getGatewayWsUrl: profile => ipcRenderer.invoke('seraphiel:gateway:ws-url', profile),
+  openSessionWindow: sessionId => ipcRenderer.invoke('seraphiel:window:openSession', sessionId),
+  getBootProgress: () => ipcRenderer.invoke('seraphiel:boot-progress:get'),
+  getConnectionConfig: profile => ipcRenderer.invoke('seraphiel:connection-config:get', profile),
+  saveConnectionConfig: payload => ipcRenderer.invoke('seraphiel:connection-config:save', payload),
+  applyConnectionConfig: payload => ipcRenderer.invoke('seraphiel:connection-config:apply', payload),
+  testConnectionConfig: payload => ipcRenderer.invoke('seraphiel:connection-config:test', payload),
+  probeConnectionConfig: remoteUrl => ipcRenderer.invoke('seraphiel:connection-config:probe', remoteUrl),
+  oauthLoginConnectionConfig: remoteUrl => ipcRenderer.invoke('seraphiel:connection-config:oauth-login', remoteUrl),
+  oauthLogoutConnectionConfig: remoteUrl => ipcRenderer.invoke('seraphiel:connection-config:oauth-logout', remoteUrl),
   profile: {
-    get: () => ipcRenderer.invoke('hermes:profile:get'),
-    set: name => ipcRenderer.invoke('hermes:profile:set', name)
+    get: () => ipcRenderer.invoke('seraphiel:profile:get'),
+    set: name => ipcRenderer.invoke('seraphiel:profile:set', name)
   },
-  api: request => ipcRenderer.invoke('hermes:api', request),
-  notify: payload => ipcRenderer.invoke('hermes:notify', payload),
-  requestMicrophoneAccess: () => ipcRenderer.invoke('hermes:requestMicrophoneAccess'),
-  readFileDataUrl: filePath => ipcRenderer.invoke('hermes:readFileDataUrl', filePath),
-  readFileText: filePath => ipcRenderer.invoke('hermes:readFileText', filePath),
-  selectPaths: options => ipcRenderer.invoke('hermes:selectPaths', options),
-  writeClipboard: text => ipcRenderer.invoke('hermes:writeClipboard', text),
-  saveImageFromUrl: url => ipcRenderer.invoke('hermes:saveImageFromUrl', url),
-  saveImageBuffer: (data, ext) => ipcRenderer.invoke('hermes:saveImageBuffer', { data, ext }),
-  saveClipboardImage: () => ipcRenderer.invoke('hermes:saveClipboardImage'),
+  api: request => ipcRenderer.invoke('seraphiel:api', request),
+  notify: payload => ipcRenderer.invoke('seraphiel:notify', payload),
+  requestMicrophoneAccess: () => ipcRenderer.invoke('seraphiel:requestMicrophoneAccess'),
+  readFileDataUrl: filePath => ipcRenderer.invoke('seraphiel:readFileDataUrl', filePath),
+  readFileText: filePath => ipcRenderer.invoke('seraphiel:readFileText', filePath),
+  selectPaths: options => ipcRenderer.invoke('seraphiel:selectPaths', options),
+  writeClipboard: text => ipcRenderer.invoke('seraphiel:writeClipboard', text),
+  saveImageFromUrl: url => ipcRenderer.invoke('seraphiel:saveImageFromUrl', url),
+  saveImageBuffer: (data, ext) => ipcRenderer.invoke('seraphiel:saveImageBuffer', { data, ext }),
+  saveClipboardImage: () => ipcRenderer.invoke('seraphiel:saveClipboardImage'),
   getPathForFile: file => {
     try {
       return webUtils.getPathForFile(file) || ''
@@ -35,36 +35,36 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
       return ''
     }
   },
-  normalizePreviewTarget: (target, baseDir) => ipcRenderer.invoke('hermes:normalizePreviewTarget', target, baseDir),
-  watchPreviewFile: url => ipcRenderer.invoke('hermes:watchPreviewFile', url),
-  stopPreviewFileWatch: id => ipcRenderer.invoke('hermes:stopPreviewFileWatch', id),
-  setTitleBarTheme: payload => ipcRenderer.send('hermes:titlebar-theme', payload),
-  setPreviewShortcutActive: active => ipcRenderer.send('hermes:previewShortcutActive', Boolean(active)),
-  openExternal: url => ipcRenderer.invoke('hermes:openExternal', url),
-  fetchLinkTitle: url => ipcRenderer.invoke('hermes:fetchLinkTitle', url),
-  sanitizeWorkspaceCwd: cwd => ipcRenderer.invoke('hermes:workspace:sanitize', cwd),
+  normalizePreviewTarget: (target, baseDir) => ipcRenderer.invoke('seraphiel:normalizePreviewTarget', target, baseDir),
+  watchPreviewFile: url => ipcRenderer.invoke('seraphiel:watchPreviewFile', url),
+  stopPreviewFileWatch: id => ipcRenderer.invoke('seraphiel:stopPreviewFileWatch', id),
+  setTitleBarTheme: payload => ipcRenderer.send('seraphiel:titlebar-theme', payload),
+  setPreviewShortcutActive: active => ipcRenderer.send('seraphiel:previewShortcutActive', Boolean(active)),
+  openExternal: url => ipcRenderer.invoke('seraphiel:openExternal', url),
+  fetchLinkTitle: url => ipcRenderer.invoke('seraphiel:fetchLinkTitle', url),
+  sanitizeWorkspaceCwd: cwd => ipcRenderer.invoke('seraphiel:workspace:sanitize', cwd),
   settings: {
-    getDefaultProjectDir: () => ipcRenderer.invoke('hermes:setting:defaultProjectDir:get'),
-    setDefaultProjectDir: dir => ipcRenderer.invoke('hermes:setting:defaultProjectDir:set', dir),
-    pickDefaultProjectDir: () => ipcRenderer.invoke('hermes:setting:defaultProjectDir:pick')
+    getDefaultProjectDir: () => ipcRenderer.invoke('seraphiel:setting:defaultProjectDir:get'),
+    setDefaultProjectDir: dir => ipcRenderer.invoke('seraphiel:setting:defaultProjectDir:set', dir),
+    pickDefaultProjectDir: () => ipcRenderer.invoke('seraphiel:setting:defaultProjectDir:pick')
   },
-  revealLogs: () => ipcRenderer.invoke('hermes:logs:reveal'),
-  getRecentLogs: () => ipcRenderer.invoke('hermes:logs:recent'),
-  readDir: dirPath => ipcRenderer.invoke('hermes:fs:readDir', dirPath),
-  gitRoot: startPath => ipcRenderer.invoke('hermes:fs:gitRoot', startPath),
+  revealLogs: () => ipcRenderer.invoke('seraphiel:logs:reveal'),
+  getRecentLogs: () => ipcRenderer.invoke('seraphiel:logs:recent'),
+  readDir: dirPath => ipcRenderer.invoke('seraphiel:fs:readDir', dirPath),
+  gitRoot: startPath => ipcRenderer.invoke('seraphiel:fs:gitRoot', startPath),
   terminal: {
-    dispose: id => ipcRenderer.invoke('hermes:terminal:dispose', id),
-    resize: (id, size) => ipcRenderer.invoke('hermes:terminal:resize', id, size),
-    start: options => ipcRenderer.invoke('hermes:terminal:start', options),
-    write: (id, data) => ipcRenderer.invoke('hermes:terminal:write', id, data),
+    dispose: id => ipcRenderer.invoke('seraphiel:terminal:dispose', id),
+    resize: (id, size) => ipcRenderer.invoke('seraphiel:terminal:resize', id, size),
+    start: options => ipcRenderer.invoke('seraphiel:terminal:start', options),
+    write: (id, data) => ipcRenderer.invoke('seraphiel:terminal:write', id, data),
     onData: (id, callback) => {
-      const channel = `hermes:terminal:${id}:data`
+      const channel = `seraphiel:terminal:${id}:data`
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on(channel, listener)
       return () => ipcRenderer.removeListener(channel, listener)
     },
     onExit: (id, callback) => {
-      const channel = `hermes:terminal:${id}:exit`
+      const channel = `seraphiel:terminal:${id}:exit`
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on(channel, listener)
       return () => ipcRenderer.removeListener(channel, listener)
@@ -72,71 +72,71 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   },
   onClosePreviewRequested: callback => {
     const listener = () => callback()
-    ipcRenderer.on('hermes:close-preview-requested', listener)
-    return () => ipcRenderer.removeListener('hermes:close-preview-requested', listener)
+    ipcRenderer.on('seraphiel:close-preview-requested', listener)
+    return () => ipcRenderer.removeListener('seraphiel:close-preview-requested', listener)
   },
   onOpenUpdatesRequested: callback => {
     const listener = () => callback()
-    ipcRenderer.on('hermes:open-updates', listener)
-    return () => ipcRenderer.removeListener('hermes:open-updates', listener)
+    ipcRenderer.on('seraphiel:open-updates', listener)
+    return () => ipcRenderer.removeListener('seraphiel:open-updates', listener)
   },
   onWindowStateChanged: callback => {
     const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('hermes:window-state-changed', listener)
-    return () => ipcRenderer.removeListener('hermes:window-state-changed', listener)
+    ipcRenderer.on('seraphiel:window-state-changed', listener)
+    return () => ipcRenderer.removeListener('seraphiel:window-state-changed', listener)
   },
   onPreviewFileChanged: callback => {
     const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('hermes:preview-file-changed', listener)
-    return () => ipcRenderer.removeListener('hermes:preview-file-changed', listener)
+    ipcRenderer.on('seraphiel:preview-file-changed', listener)
+    return () => ipcRenderer.removeListener('seraphiel:preview-file-changed', listener)
   },
   onBackendExit: callback => {
     const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('hermes:backend-exit', listener)
-    return () => ipcRenderer.removeListener('hermes:backend-exit', listener)
+    ipcRenderer.on('seraphiel:backend-exit', listener)
+    return () => ipcRenderer.removeListener('seraphiel:backend-exit', listener)
   },
   onPowerResume: callback => {
     const listener = () => callback()
-    ipcRenderer.on('hermes:power-resume', listener)
-    return () => ipcRenderer.removeListener('hermes:power-resume', listener)
+    ipcRenderer.on('seraphiel:power-resume', listener)
+    return () => ipcRenderer.removeListener('seraphiel:power-resume', listener)
   },
   onBootProgress: callback => {
     const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('hermes:boot-progress', listener)
-    return () => ipcRenderer.removeListener('hermes:boot-progress', listener)
+    ipcRenderer.on('seraphiel:boot-progress', listener)
+    return () => ipcRenderer.removeListener('seraphiel:boot-progress', listener)
   },
   // First-launch bootstrap progress -- emitted by the install.ps1 stage
   // runner in main.cjs (apps/desktop/electron/bootstrap-runner.cjs).
   // Renderer's install overlay subscribes to live events and queries the
   // current snapshot via getBootstrapState() to recover after a devtools
   // reload mid-bootstrap.
-  getBootstrapState: () => ipcRenderer.invoke('hermes:bootstrap:get'),
-  resetBootstrap: () => ipcRenderer.invoke('hermes:bootstrap:reset'),
-  repairBootstrap: () => ipcRenderer.invoke('hermes:bootstrap:repair'),
-  cancelBootstrap: () => ipcRenderer.invoke('hermes:bootstrap:cancel'),
+  getBootstrapState: () => ipcRenderer.invoke('seraphiel:bootstrap:get'),
+  resetBootstrap: () => ipcRenderer.invoke('seraphiel:bootstrap:reset'),
+  repairBootstrap: () => ipcRenderer.invoke('seraphiel:bootstrap:repair'),
+  cancelBootstrap: () => ipcRenderer.invoke('seraphiel:bootstrap:cancel'),
   onBootstrapEvent: callback => {
     const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('hermes:bootstrap:event', listener)
-    return () => ipcRenderer.removeListener('hermes:bootstrap:event', listener)
+    ipcRenderer.on('seraphiel:bootstrap:event', listener)
+    return () => ipcRenderer.removeListener('seraphiel:bootstrap:event', listener)
   },
-  getVersion: () => ipcRenderer.invoke('hermes:version'),
+  getVersion: () => ipcRenderer.invoke('seraphiel:version'),
   uninstall: {
-    summary: () => ipcRenderer.invoke('hermes:uninstall:summary'),
-    run: mode => ipcRenderer.invoke('hermes:uninstall:run', { mode })
+    summary: () => ipcRenderer.invoke('seraphiel:uninstall:summary'),
+    run: mode => ipcRenderer.invoke('seraphiel:uninstall:run', { mode })
   },
   updates: {
-    check: () => ipcRenderer.invoke('hermes:updates:check'),
-    apply: opts => ipcRenderer.invoke('hermes:updates:apply', opts),
-    getBranch: () => ipcRenderer.invoke('hermes:updates:branch:get'),
-    setBranch: name => ipcRenderer.invoke('hermes:updates:branch:set', name),
+    check: () => ipcRenderer.invoke('seraphiel:updates:check'),
+    apply: opts => ipcRenderer.invoke('seraphiel:updates:apply', opts),
+    getBranch: () => ipcRenderer.invoke('seraphiel:updates:branch:get'),
+    setBranch: name => ipcRenderer.invoke('seraphiel:updates:branch:set', name),
     onProgress: callback => {
       const listener = (_event, payload) => callback(payload)
-      ipcRenderer.on('hermes:updates:progress', listener)
-      return () => ipcRenderer.removeListener('hermes:updates:progress', listener)
+      ipcRenderer.on('seraphiel:updates:progress', listener)
+      return () => ipcRenderer.removeListener('seraphiel:updates:progress', listener)
     }
   },
   themes: {
-    fetchMarketplace: id => ipcRenderer.invoke('hermes:vscode-theme:fetch', id),
-    searchMarketplace: query => ipcRenderer.invoke('hermes:vscode-theme:search', query)
+    fetchMarketplace: id => ipcRenderer.invoke('seraphiel:vscode-theme:fetch', id),
+    searchMarketplace: query => ipcRenderer.invoke('seraphiel:vscode-theme:search', query)
   }
 })

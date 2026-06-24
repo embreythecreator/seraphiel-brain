@@ -6,8 +6,8 @@ import { BrailleSpinner } from '@/components/ui/braille-spinner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import type { HermesGateway } from '@/hermes'
-import { getGlobalModelOptions } from '@/hermes'
+import type { SeraphielGateway } from '@/seraphiel'
+import { getGlobalModelOptions } from '@/seraphiel'
 import { useI18n } from '@/i18n'
 import { displayModelName, modelDisplayParts } from '@/lib/model-status-label'
 import {
@@ -17,10 +17,10 @@ import {
   modelVisibilityKey,
   setVisibleModels
 } from '@/store/model-visibility'
-import type { ModelOptionProvider, ModelOptionsResponse } from '@/types/hermes'
+import type { ModelOptionProvider, ModelOptionsResponse } from '@/types/seraphiel'
 
 interface ModelVisibilityDialogProps {
-  gw?: HermesGateway
+  gw?: SeraphielGateway
   onOpenChange: (open: boolean) => void
   onOpenProviders: () => void
   open: boolean

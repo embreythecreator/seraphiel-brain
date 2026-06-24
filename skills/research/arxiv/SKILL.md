@@ -6,7 +6,7 @@ author: Seraphiel Brain
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
-  hermes:
+  seraphiel:
     tags: [Research, Arxiv, Papers, Academic, Science, API]
     related_skills: [ocr-and-documents]
 ---
