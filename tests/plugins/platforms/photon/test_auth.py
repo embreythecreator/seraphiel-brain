@@ -80,7 +80,7 @@ def test_store_project_credentials_round_trip(
         spectrum_project_id="sp-123",
         project_secret="secret-key",
         dashboard_project_id="dash-456",
-        name="Hermes Agent",
+        name="Seraphiel Brain",
     )
     for key in _PHOTON_ENV:
         monkeypatch.delenv(key, raising=False)
@@ -265,7 +265,7 @@ def test_poll_for_token_access_denied(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_list_projects_unwraps_list(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_get(url: str, **kwargs: Any) -> _FakeResponse:
-        return _FakeResponse(json_body=[{"id": "p1", "name": "Hermes Agent"}])
+        return _FakeResponse(json_body=[{"id": "p1", "name": "Seraphiel Brain"}])
 
     monkeypatch.setattr(photon_auth.httpx, "get", fake_get)
     projects = photon_auth.list_projects("tok")
@@ -280,7 +280,7 @@ def test_find_project_by_name_case_insensitive(monkeypatch: pytest.MonkeyPatch) 
         ]})
 
     monkeypatch.setattr(photon_auth.httpx, "get", fake_get)
-    proj = photon_auth.find_project_by_name("tok", "Hermes Agent")
+    proj = photon_auth.find_project_by_name("tok", "Seraphiel Brain")
     assert proj is not None and proj["id"] == "p2"
 
 
@@ -294,10 +294,10 @@ def test_create_project_sends_spectrum_true(monkeypatch: pytest.MonkeyPatch) -> 
         return _FakeResponse(json_body={"success": True, "id": "new-proj"})
 
     monkeypatch.setattr(photon_auth.httpx, "post", fake_post)
-    data = photon_auth.create_project("tok", name="Hermes Agent")
+    data = photon_auth.create_project("tok", name="Seraphiel Brain")
     assert data["id"] == "new-proj"
     assert captured["body"]["spectrum"] is True
-    assert captured["body"]["name"] == "Hermes Agent"
+    assert captured["body"]["name"] == "Seraphiel Brain"
     assert captured["headers"]["Authorization"] == "Bearer tok"
     assert captured["url"].endswith("/api/projects")
 

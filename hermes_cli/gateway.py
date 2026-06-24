@@ -1399,7 +1399,7 @@ def _windows_gateway_should_absorb_console_controls() -> bool:
 # =============================================================================
 
 _SERVICE_BASE = "hermes-gateway"
-SERVICE_DESCRIPTION = "Hermes Agent Gateway - Messaging Platform Integration"
+SERVICE_DESCRIPTION = "Seraphiel Brain Gateway - Messaging Platform Integration"
 
 
 def _profile_suffix() -> str:
