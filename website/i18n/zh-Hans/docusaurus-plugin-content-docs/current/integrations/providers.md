@@ -735,7 +735,7 @@ vllm serve meta-llama/Llama-3.1-70B-Instruct \
   --max-model-len 65536 \
   --tensor-parallel-size 2 \
   --enable-auto-tool-choice \
-  --tool-call-parser hermes
+  --tool-call-parser <parser-for-your-model>  # see vLLM tool-calling docs
 ```
 
 然后配置 Seraphiel：
@@ -1010,7 +1010,7 @@ curl http://172.29.192.1:11434/v1/models       # NAT 模式（使用你的实际
 | 服务器 | 修复方式 |
 |--------|-----|
 | **llama.cpp** | 在启动命令中添加 `--jinja` |
-| **vLLM** | 添加 `--enable-auto-tool-choice --tool-call-parser hermes` |
+| **vLLM** | 添加 `--enable-auto-tool-choice --tool-call-parser <parser-for-your-model>  # see vLLM tool-calling docs` |
 | **SGLang** | 添加 `--tool-call-parser qwen`（或适当的解析器） |
 | **Ollama** | 工具调用默认启用——确保你的模型支持（使用 `ollama show model-name` 检查） |
 | **LM Studio** | 更新到 0.3.6+ 并使用具有原生工具支持的模型 |
