@@ -348,7 +348,7 @@ def _cmd_migrate(args):
     )
     print(
         color(
-            "│          ⚕ Seraphiel — OpenClaw Migration                 │",
+            "│          ✶ Seraphiel — OpenClaw Migration                 │",
             Colors.MAGENTA,
         )
     )
@@ -574,7 +574,7 @@ def _cmd_cleanup(args):
     )
     print(
         color(
-            "│          ⚕ Seraphiel — OpenClaw Cleanup                   │",
+            "│          ✶ Seraphiel — OpenClaw Cleanup                   │",
             Colors.MAGENTA,
         )
     )
