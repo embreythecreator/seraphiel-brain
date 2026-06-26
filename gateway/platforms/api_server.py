@@ -6,7 +6,7 @@ Exposes an HTTP server with endpoints:
 - POST /v1/responses               — OpenAI Responses API format (stateful via previous_response_id; X-Seraphiel-Session-Key supported)
 - GET  /v1/responses/{response_id} — Retrieve a stored response
 - DELETE /v1/responses/{response_id} — Delete a stored response
-- GET  /v1/models                  — lists seraphiel-brain as an available model
+- GET  /v1/models                  — lists the versioned Seraphiel model name
 - GET  /v1/capabilities            — machine-readable API capabilities for external UIs
 - GET  /api/sessions               — list client-visible Seraphiel sessions
 - POST /api/sessions               — create an empty Seraphiel session
@@ -82,6 +82,13 @@ def _seraphiel_version() -> str:
         return __version__
     except Exception:
         return "dev"
+
+
+def _default_seraphiel_model_name() -> str:
+    version = _seraphiel_version().strip()
+    if not version or version == "dev":
+        return "Seraphiel-dev"
+    return f"Seraphiel-v{version}"
 
 
 # Default settings
@@ -789,7 +796,7 @@ class APIServerAdapter(BasePlatformAdapter):
         Priority:
         1. Explicit override (config extra or API_SERVER_MODEL_NAME env var)
         2. Active profile name (so each profile advertises a distinct model)
-        3. Fallback: "seraphiel-brain"
+        3. Fallback: versioned Seraphiel model name
         """
         if explicit and explicit.strip():
             return explicit.strip()
@@ -800,7 +807,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 return profile
         except Exception:
             pass
-        return "seraphiel-brain"
+        return _default_seraphiel_model_name()
 
     def _cors_headers_for_origin(self, origin: str) -> Optional[Dict[str, str]]:
         """Return CORS headers for an allowed browser origin."""
@@ -1097,7 +1104,7 @@ class APIServerAdapter(BasePlatformAdapter):
         })
 
     async def _handle_models(self, request: "web.Request") -> "web.Response":
-        """GET /v1/models — return seraphiel-brain as an available model."""
+        """GET /v1/models — return the advertised Seraphiel model."""
         auth_err = self._check_auth(request)
         if auth_err:
             return auth_err

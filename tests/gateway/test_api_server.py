@@ -29,6 +29,7 @@ from gateway.platforms.api_server import (
     APIServerAdapter,
     ResponseStore,
     _IdempotencyCache,
+    _default_seraphiel_model_name,
     _derive_chat_session_id,
     check_api_server_requirements,
     cors_middleware,
@@ -583,7 +584,7 @@ class TestHealthDetailedEndpoint:
 
 class TestModelsEndpoint:
     @pytest.mark.asyncio
-    async def test_models_returns_seraphiel_brain(self, adapter):
+    async def test_models_returns_versioned_seraphiel_model(self, adapter):
         app = _create_app(adapter)
         async with TestClient(TestServer(app)) as cli:
             resp = await cli.get("/v1/models")
@@ -591,7 +592,7 @@ class TestModelsEndpoint:
             data = await resp.json()
             assert data["object"] == "list"
             assert len(data["data"]) == 1
-            assert data["data"][0]["id"] == "seraphiel-brain"
+            assert data["data"][0]["id"] == _default_seraphiel_model_name()
             assert data["data"][0]["owned_by"] == "seraphiel"
 
     @pytest.mark.asyncio
@@ -619,9 +620,9 @@ class TestModelsEndpoint:
         assert APIServerAdapter._resolve_model_name("my-bot") == "my-bot"
 
     def test_resolve_model_name_default_profile(self):
-        """Default profile falls back to 'seraphiel-brain'."""
+        """Default profile falls back to the versioned Seraphiel model name."""
         with patch("seraphiel_cli.profiles.get_active_profile_name", return_value="default"):
-            assert APIServerAdapter._resolve_model_name("") == "seraphiel-brain"
+            assert APIServerAdapter._resolve_model_name("") == _default_seraphiel_model_name()
 
     def test_resolve_model_name_named_profile(self):
         """Named profile uses the profile name as model name."""
@@ -661,7 +662,7 @@ class TestCapabilitiesEndpoint:
             data = await resp.json()
             assert data["object"] == "seraphiel.api_server.capabilities"
             assert data["platform"] == "seraphiel-brain"
-            assert data["model"] == "seraphiel-brain"
+            assert data["model"] == _default_seraphiel_model_name()
             assert data["auth"]["type"] == "bearer"
             assert data["auth"]["required"] is False
             assert data["runtime"]["mode"] == "server_agent"

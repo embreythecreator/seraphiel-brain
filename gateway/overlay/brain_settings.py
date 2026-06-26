@@ -3,7 +3,7 @@
 The Brain's settings (its ``config.yaml``) are file-based and only mutable via the
 Brain's ``config set`` CLI. The Face's admin panel needs to read/write them over
 HTTP, so this overlay exposes three routes on the gateway's existing aiohttp API
-server (the one already bound to 127.0.0.1:8642 in API-server mode):
+server:
 
     GET   /v1/brain/settings/schema   -> domain/dangerous descriptor + source commit
     GET   /v1/brain/settings          -> current config, secrets redacted
@@ -21,8 +21,13 @@ anyway as defense in depth.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import re
 import subprocess
+import time
 from typing import Any, Dict
 
 try:
@@ -38,7 +43,7 @@ from seraphiel_cli.config import (
 )
 
 # Dotted keys whose mutation can disable a safety check or run arbitrary code.
-# Writing ANY of these requires the elevation header (Seal tier, defense in depth).
+# Writing ANY of these requires a signed Seal (defense in depth).
 # The Face proxy enforces the same set; this is the server-side half.
 DANGEROUS_FIELDS = {
     "approvals.mode",          # turning the approval gate off
@@ -51,13 +56,17 @@ DANGEROUS_FIELDS = {
 # toggle lands; the Face projection's `dangerous` flags must stay in sync.
 DANGEROUS_PREFIXES = ("code_execution.", "approvals.")
 
-# Elevation token the Face attaches only when the admin session holds the
-# elevated Seal capability. Absent -> dangerous writes are refused 403.
-ELEVATION_HEADER = "X-Brain-Allow-Dangerous"
+# Signed elevation token the Face attaches only when the admin session holds the
+# elevated Seal capability. Absent or invalid -> dangerous writes are refused.
+SEAL_HEADER = "X-Brain-Settings-Seal"
+SEAL_ACTION = "brain_settings.patch"
+SEAL_MAX_TTL_SECONDS = 120
+SEAL_CLOCK_SKEW_SECONDS = 15
 
 _SECRET_RE = re.compile(
     r"(api[_-]?key|secret|token|password|passwd|credential|private[_-]?key)", re.I
 )
+_USED_SEAL_NONCES: Dict[str, float] = {}
 
 
 def _is_dangerous(dotted_key: str) -> bool:
@@ -129,7 +138,110 @@ def _schema_descriptor() -> Dict[str, Any]:
         "config_path": str(get_config_path()),
         "domains": domains,
         "dangerous": sorted(DANGEROUS_FIELDS),
+        "seal": {
+            "action": SEAL_ACTION,
+            "header": SEAL_HEADER,
+            "max_ttl_seconds": SEAL_MAX_TTL_SECONDS,
+        },
     }
+
+
+def _b64url_decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+
+def _b64url_encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
+def _seal_signature(secret: str, payload_b64: str) -> str:
+    digest = hmac.new(secret.encode("utf-8"), payload_b64.encode("ascii"), hashlib.sha256).digest()
+    return _b64url_encode(digest)
+
+
+def _seal_secret(adapter) -> str:
+    return str(getattr(adapter, "_api_key", "") or "")
+
+
+def _prune_used_seal_nonces(now: float) -> None:
+    expired = [nonce for nonce, exp in _USED_SEAL_NONCES.items() if exp <= now]
+    for nonce in expired:
+        _USED_SEAL_NONCES.pop(nonce, None)
+
+
+def _verify_settings_seal(request, adapter, dangerous_fields: list[str]) -> tuple[bool, str]:
+    """Verify a signed, short-lived Seal for dangerous settings writes."""
+    seal = request.headers.get(SEAL_HEADER, "").strip()
+    if not seal:
+        return False, "missing"
+
+    secret = _seal_secret(adapter)
+    if not secret:
+        return False, "unconfigured"
+
+    try:
+        payload_b64, signature = seal.split(".", 1)
+    except ValueError:
+        return False, "malformed"
+
+    expected_signature = _seal_signature(secret, payload_b64)
+    if not hmac.compare_digest(signature, expected_signature):
+        return False, "bad_signature"
+
+    try:
+        payload = json.loads(_b64url_decode(payload_b64).decode("utf-8"))
+    except Exception:
+        return False, "bad_payload"
+
+    if not isinstance(payload, dict):
+        return False, "bad_payload"
+
+    now = time.time()
+    exp = payload.get("exp")
+    iat = payload.get("iat")
+    if not isinstance(exp, (int, float)) or not isinstance(iat, (int, float)):
+        return False, "bad_time"
+    if iat > now + SEAL_CLOCK_SKEW_SECONDS:
+        return False, "issued_in_future"
+    if exp <= now - SEAL_CLOCK_SKEW_SECONDS:
+        return False, "expired"
+    if exp - iat > SEAL_MAX_TTL_SECONDS:
+        return False, "ttl_too_long"
+
+    if payload.get("action") != SEAL_ACTION:
+        return False, "bad_action"
+    if payload.get("method") != "PATCH":
+        return False, "bad_method"
+    if payload.get("path") != request.path:
+        return False, "bad_path"
+
+    fields = payload.get("fields")
+    if not isinstance(fields, list) or sorted(str(field) for field in fields) != sorted(dangerous_fields):
+        return False, "bad_fields"
+
+    nonce = str(payload.get("nonce") or "").strip()
+    if not nonce:
+        return False, "missing_nonce"
+
+    _prune_used_seal_nonces(now)
+    if nonce in _USED_SEAL_NONCES:
+        return False, "replayed"
+
+    _USED_SEAL_NONCES[nonce] = float(exp)
+    return True, ""
+
+
+def _settings_seal_error(reason: str, dangerous_fields: list[str]):
+    return web.json_response(
+        {
+            "error": "seal_required",
+            "message": "These fields require a valid Brain Settings Seal and were not written.",
+            "fields": sorted(dangerous_fields),
+            "reason": reason,
+        },
+        status=403,
+    )
 
 
 def register_brain_settings_routes(app, adapter) -> None:
@@ -166,17 +278,11 @@ def register_brain_settings_routes(app, adapter) -> None:
             return web.json_response({"error": "empty patch"}, status=400)
 
         flat = _flatten(patch)
-        elevated = request.headers.get(ELEVATION_HEADER, "").strip() in ("1", "true", "yes")
-        blocked = [k for k in flat if _is_dangerous(k) and not elevated]
-        if blocked:
-            return web.json_response(
-                {
-                    "error": "elevation_required",
-                    "message": "These fields require Seal elevation and were not written.",
-                    "fields": sorted(blocked),
-                },
-                status=403,
-            )
+        dangerous_fields = sorted(k for k in flat if _is_dangerous(k))
+        if dangerous_fields:
+            verified, reason = _verify_settings_seal(request, adapter, dangerous_fields)
+            if not verified:
+                return _settings_seal_error(reason, dangerous_fields)
 
         applied, failed = [], {}
         for key, value in flat.items():
