@@ -4202,6 +4202,14 @@ class APIServerAdapter(BasePlatformAdapter):
             # upstream session-control handlers.
             self._app["api_server_adapter"] = self
 
+            # [overlay] seraphiel-brain settings routes — guarded so a bad import
+            # never takes down the gateway; never edits a vendored file in place.
+            try:
+                from gateway.overlay.brain_settings import register_brain_settings_routes
+                register_brain_settings_routes(self._app, self)
+            except Exception:
+                logger.exception("[overlay] brain settings routes failed to register")
+
             # Start background sweep to clean up orphaned (unconsumed) run streams
             sweep_task = asyncio.create_task(self._sweep_orphaned_runs())
             try:
