@@ -338,6 +338,27 @@ def check_for_updates() -> Optional[int]:
     return behind
 
 
+def absorb_offer_line(repo: str) -> Optional[str]:
+    """Maintainer-only one-line offer when a newer upstream tag is absorbable.
+
+    Returns None on non-maintainer installs (no git checkout, or no ``upstream``
+    remote) and when already up to date, so the banner stays silent there. The
+    underlying detection is cached (6h TTL) so this never repeatedly hits the
+    network at launch.
+    """
+    try:
+        from seraphiel_cli.absorb import driver, detect
+        ok, _ = driver.install_ok(repo)
+        if not ok:
+            return None
+        tag = detect.latest_absorbable(repo)
+        if not tag:
+            return None
+        return f"✶ upstream Hermes {tag} available to absorb · run `seraphiel absorb {tag}`"
+    except Exception:
+        return None
+
+
 def _resolve_repo_dir() -> Optional[Path]:
     """Return the active Seraphiel git checkout, or None if this isn't a git install.
 
@@ -790,6 +811,18 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
                 right_lines.append(line)
     except Exception:
         pass  # Never break the banner over an update check
+
+    # Absorb offer — maintainer / git-source installs only: a newer upstream
+    # Hermes release is available to fold into the fork. Silent (None) on
+    # non-git / no-`upstream` installs and when up to date; detection is cached.
+    try:
+        _absorb_repo = _resolve_repo_dir()
+        if _absorb_repo is not None:
+            _offer = absorb_offer_line(str(_absorb_repo))
+            if _offer:
+                right_lines.append(f"[magenta]{_offer}[/]")
+    except Exception:
+        pass  # Never break the banner over the absorb check
 
     # Pip-install warning — `pip install seraphiel-brain` is not the supported
     # install path (it exists on PyPI for internal/CI reasons, not end users).

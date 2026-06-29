@@ -14,3 +14,19 @@ def test_newer_tags_handles_dotted_patch():
 
 def test_no_newer_returns_empty():
     assert detect.newer_tags("v2026.6.19", ["v2026.6.5", "v2026.6.19"]) == []
+
+
+def test_absorb_offer_line(monkeypatch):
+    from seraphiel_cli import banner
+    from seraphiel_cli.absorb import driver, detect
+    monkeypatch.setattr(driver, "install_ok", lambda repo: (True, ""))
+    monkeypatch.setattr(detect, "latest_absorbable", lambda repo: "v2026.7.0")
+    line = banner.absorb_offer_line("/x")
+    assert line and "v2026.7.0" in line and "seraphiel absorb" in line
+
+
+def test_absorb_offer_silent_on_non_git(monkeypatch):
+    from seraphiel_cli import banner
+    from seraphiel_cli.absorb import driver
+    monkeypatch.setattr(driver, "install_ok", lambda repo: (False, "no upstream"))
+    assert banner.absorb_offer_line("/x") is None
