@@ -16,9 +16,11 @@ import subprocess
 import sys
 
 # Legal carve-outs keep upstream attribution; UPSTREAM_BASE.md references upstream
-# by name on purpose; the absorb harness itself defines the tokens it rewrites.
+# by name on purpose; the absorb harness itself defines the tokens it rewrites
+# (both its legacy script home and its packaged home).
 ALLOWED_STRAY = ("achievements/LICENSE", "security-guidance/NOTICE",
-                 "UPSTREAM_BASE.md", "CHANGELOG.md", "scripts/absorb/")
+                 "UPSTREAM_BASE.md", "CHANGELOG.md", "scripts/absorb/",
+                 "seraphiel_cli/absorb/")
 CONFLICT_MARK = b"<<<<<<<"
 
 
@@ -51,24 +53,37 @@ def grep_stray(tree):
     return [f for f in files if not any(a in f for a in ALLOWED_STRAY)]
 
 
-def main():
-    merged, theirs, head = sys.argv[1], sys.argv[2], sys.argv[3]
-    merged_names = names(merged)
-    head_names = names(head)
+def report(merged: str, theirs: str, head: str) -> dict:
+    """Classify the merged tree; structured result for `seraphiel absorb`.
 
-    re_added = sorted(merged_names - head_names)
-    removed = sorted(head_names - merged_names)
-    divergence = diff_names(merged, theirs)
+    Keys: re_added / removed (vs prior HEAD), divergence (merged != THEIRS),
+    conflicts (files w/ markers), stray (upstream tokens outside carve-outs),
+    ready (commit gate: no conflicts and no stray).
+    """
+    merged_names, head_names = names(merged), names(head)
     conflicts = grep_conflict_markers(merged)
     stray = grep_stray(merged)
+    return {
+        "re_added": len(merged_names - head_names),
+        "removed": len(head_names - merged_names),
+        "divergence": len(diff_names(merged, theirs)),
+        "conflicts": conflicts,
+        "stray": stray,
+        "ready": not conflicts and not stray,
+    }
 
-    print(f"   re-added (un-trimmed / new from upstream): {len(re_added)} files")
-    print(f"   removed vs prior HEAD:                     {len(removed)} files")
-    print(f"   genuine divergence (merged != upstream):   {len(divergence)} files")
 
-    status_ok = True
+def main():
+    merged, theirs, head = sys.argv[1], sys.argv[2], sys.argv[3]
+    r = report(merged, theirs, head)
+    conflicts, stray = r["conflicts"], r["stray"]
+
+    print(f"   re-added (un-trimmed / new from upstream): {r['re_added']} files")
+    print(f"   removed vs prior HEAD:                     {r['removed']} files")
+    print(f"   genuine divergence (merged != upstream):   {r['divergence']} files")
+
+    status_ok = r["ready"]
     if conflicts:
-        status_ok = False
         print(f"   !! UNRESOLVED CONFLICT MARKERS in {len(conflicts)} files:")
         for f in conflicts[:50]:
             print(f"        {f}")

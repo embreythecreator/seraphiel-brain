@@ -21,8 +21,11 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import rename_map as T  # noqa: E402
+try:
+    from . import rename_map as T          # packaged
+except ImportError:                         # direct-script fallback
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import rename_map as T  # noqa: E402
 
 
 def git(*args: str, input_bytes: bytes | None = None) -> bytes:
