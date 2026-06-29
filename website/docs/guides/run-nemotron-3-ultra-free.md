@@ -20,7 +20,7 @@ The simplest path: a one-click installer with a guided, point-and-click setup. N
 
 ### 1. Download and install
 
-[Download the Seraphiel Desktop installer](https://seraphiel-brain.embreythecreator.com/desktop) for macOS or Windows, then open it. On first launch it finishes setting itself up (usually under a minute).
+[Download the Seraphiel Desktop installer](https://seraphiel-brain.embreythecreator.com/) for macOS or Windows, then open it. On first launch it finishes setting itself up (usually under a minute).
 
 ### 2. Connect Nous Portal
 

@@ -284,7 +284,7 @@ skills:
 ## API key requirements
 
 Track these in the project setup. The setup script should verify each required
-key is present in `~/.seraphiel/.env` (or macOS Keychain) before firing the kanban.
+key is present in `${SERAPHIEL_HOME:-~/.seraphiel}/.env` (or macOS Keychain) before firing the kanban.
 
 | Service | Env var | Used by |
 |---------|---------|---------|
@@ -301,7 +301,7 @@ key is present in `~/.seraphiel/.env` (or macOS Keychain) before firing the kanb
 | Anthropic | `ANTHROPIC_API_KEY` | every Seraphiel profile (Claude) |
 
 If a key is missing, prompt the user to add it. Storage methods, in order of
-preference: macOS Keychain → `~/.seraphiel/.env` → environment variable.
+preference: macOS Keychain → `${SERAPHIEL_HOME:-~/.seraphiel}/.env` → environment variable.
 
 ## Skill version pinning
 

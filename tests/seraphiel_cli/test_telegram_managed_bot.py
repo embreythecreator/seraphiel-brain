@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import PureWindowsPath
 from unittest.mock import MagicMock, patch
 
 from seraphiel_cli.telegram_managed_bot import (
@@ -321,3 +322,34 @@ class TestSetupTelegramAuto:
         from seraphiel_cli.setup import _setup_telegram_auto
 
         assert callable(_setup_telegram_auto)
+
+    def test_setup_result_passes_profile_name_for_profile_home(self, monkeypatch, tmp_path):
+        from seraphiel_cli import setup
+
+        seen = {}
+        profile_home = tmp_path / ".seraphiel" / "profiles" / "oracle"
+        profile_home.mkdir(parents=True)
+
+        monkeypatch.setattr(setup, "get_seraphiel_home", lambda: profile_home)
+
+        def fake_auto_setup_telegram_bot_result(*, profile_name=None):
+            seen["profile_name"] = profile_name
+            return None
+
+        monkeypatch.setattr(
+            "seraphiel_cli.telegram_managed_bot.auto_setup_telegram_bot_result",
+            fake_auto_setup_telegram_bot_result,
+        )
+
+        assert setup._setup_telegram_auto_result() is None
+        assert seen["profile_name"] == "oracle"
+
+    def test_profile_name_from_home_path_handles_windows_separators(self):
+        from seraphiel_cli.setup import _profile_name_from_seraphiel_home
+
+        assert (
+            _profile_name_from_seraphiel_home(
+                PureWindowsPath(r"C:\Users\test\AppData\Local\seraphiel\profiles\oracle")
+            )
+            == "oracle"
+        )

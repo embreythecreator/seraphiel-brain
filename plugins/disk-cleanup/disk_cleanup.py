@@ -144,6 +144,17 @@ ALLOWED_CATEGORIES = {
     "chrome-profile", "cron-output", "other",
 }
 
+_EMPTY_DIR_PROTECTED_TOP_LEVEL = frozenset({
+    "logs", "memories", "sessions", "cron", "cronjobs",
+    "cache", "skills", "plugins", "disk-cleanup", "optional-skills",
+    "seraphiel-brain", "backups", "profiles", ".worktrees",
+})
+
+_EMPTY_DIR_SWEEP_PRUNE_DIRS = frozenset({
+    ".git", "node_modules", "venv", ".venv",
+    "site-packages", "__pycache__",
+})
+
 
 # Paths under $SERAPHIEL_HOME that must NEVER be deleted by quick(),
 # regardless of what the stored category says.  This is a defense-in-depth
@@ -348,27 +359,28 @@ def quick() -> Dict[str, Any]:
         else:
             new_tracked.append(item)
 
-    # Remove empty dirs under SERAPHIEL_HOME (but leave SERAPHIEL_HOME itself and
-    # a short list of well-known top-level state dirs alone — a fresh install
-    # has these empty, and deleting them would surprise the user).
+    # Remove empty dirs under SERAPHIEL_HOME, but never recurse into known
+    # durable state trees.  Some installs place the Seraphiel checkout, venv,
+    # and desktop build under SERAPHIEL_HOME; a full rglob over that tree can
+    # stall the gateway event loop for minutes.
     seraphiel_home = get_seraphiel_home()
-    _PROTECTED_TOP_LEVEL = {
-        "logs", "memories", "sessions", "cron", "cronjobs",
-        "cache", "skills", "plugins", "disk-cleanup", "optional-skills",
-        "seraphiel-brain", "backups", "profiles", ".worktrees",
-    }
     empty_removed = 0
+    sweep_stack: List[Tuple[Path, bool]] = []
     try:
-        for dirpath in sorted(seraphiel_home.rglob("*"), reverse=True):
-            if not dirpath.is_dir() or dirpath == seraphiel_home:
-                continue
-            try:
-                rel_parts = dirpath.relative_to(seraphiel_home).parts
-            except ValueError:
-                continue
-            # Skip the well-known top-level state dirs themselves.
-            if len(rel_parts) == 1 and rel_parts[0] in _PROTECTED_TOP_LEVEL:
-                continue
+        for top in seraphiel_home.iterdir():
+            if (
+                top.is_dir()
+                and not top.is_symlink()
+                and top.name not in _EMPTY_DIR_PROTECTED_TOP_LEVEL
+                and top.name not in _EMPTY_DIR_SWEEP_PRUNE_DIRS
+            ):
+                sweep_stack.append((top, False))
+    except OSError:
+        sweep_stack = []
+
+    while sweep_stack:
+        dirpath, visited = sweep_stack.pop()
+        if visited:
             try:
                 if not any(dirpath.iterdir()):
                     dirpath.rmdir()
@@ -376,8 +388,19 @@ def quick() -> Dict[str, Any]:
                     _log(f"DELETED: {dirpath} (empty dir)")
             except OSError:
                 pass
-    except OSError:
-        pass
+            continue
+
+        sweep_stack.append((dirpath, True))
+        try:
+            for child in dirpath.iterdir():
+                if (
+                    child.is_dir()
+                    and not child.is_symlink()
+                    and child.name not in _EMPTY_DIR_SWEEP_PRUNE_DIRS
+                ):
+                    sweep_stack.append((child, False))
+        except OSError:
+            pass
 
     save_tracked(new_tracked)
     _log(

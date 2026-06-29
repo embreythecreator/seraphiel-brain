@@ -170,6 +170,11 @@ export default function SystemPage() {
   const [addingCred, setAddingCred] = useState(false);
 
   const [importPath, setImportPath] = useState("");
+  // Restore-from-backup is destructive (overwrites the live config) and the
+  // spawned `seraphiel import` runs non-interactively (stdin is /dev/null), so
+  // its CLI "Continue? [y/N]" prompt would auto-abort. The dashboard owns the
+  // consent: confirm here, then call the endpoint with force=true.
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
 
   // Create-hook modal.
   const [hookModalOpen, setHookModalOpen] = useState(false);
@@ -381,6 +386,7 @@ export default function SystemPage() {
   // ── Update check / apply ───────────────────────────────────────────
   const checkForUpdate = useCallback(
     async (force = false) => {
+      if (status?.can_update_seraphiel === false) return;
       setCheckingUpdate(true);
       try {
         const info = await api.checkSeraphielUpdate(force);
@@ -405,20 +411,27 @@ export default function SystemPage() {
         setCheckingUpdate(false);
       }
     },
-    [showToast],
+    [showToast, status?.can_update_seraphiel],
   );
 
   // Auto-check (cached) runs inside loadAll on mount; this is the
   // user-triggered forced re-check from the "Check for updates" button.
   const applyUpdate = async () => {
     setUpdateConfirmOpen(false);
+    if (status?.can_update_seraphiel === false) {
+      showToast(
+        "Seraphiel updates are managed outside this dashboard.",
+        "success",
+      );
+      return;
+    }
     try {
       const resp = await api.updateSeraphiel();
-      if (!resp.ok && resp.error === "docker_update_unsupported") {
+      if (!resp.ok) {
         showToast(
           resp.message ??
-            "Updates don't apply inside Docker — re-pull the image instead.",
-          "error",
+            "Updates don't apply from this dashboard.",
+          "success",
         );
         return;
       }
@@ -498,6 +511,7 @@ export default function SystemPage() {
   }
 
   const gatewayRunning = status?.gateway_running;
+  const canUpdateSeraphiel = status?.can_update_seraphiel !== false;
   const validEvents = hooks?.valid_events?.length
     ? hooks.valid_events
     : HOOK_EVENTS_FALLBACK;
@@ -507,7 +521,7 @@ export default function SystemPage() {
       <Toast toast={toast} />
 
       <ConfirmDialog
-        open={updateConfirmOpen}
+        open={canUpdateSeraphiel && updateConfirmOpen}
         onCancel={() => setUpdateConfirmOpen(false)}
         onConfirm={() => void applyUpdate()}
         title="Update Seraphiel?"
@@ -686,7 +700,8 @@ export default function SystemPage() {
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Seraphiel</div>
                 <div className="flex items-center gap-2">
                   <span>v{stats?.seraphiel_version}</span>
-                  {updateInfo &&
+                  {canUpdateSeraphiel &&
+                    updateInfo &&
                     (updateInfo.update_available ? (
                       <Badge tone="warning">
                         {updateInfo.behind && updateInfo.behind > 0
@@ -746,45 +761,47 @@ export default function SystemPage() {
                 CPU / memory / disk metrics.
               </p>
             )}
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-              <Button
-                size="sm"
-                ghost
-                disabled={checkingUpdate}
-                prefix={
-                  checkingUpdate ? (
-                    <Spinner className="h-3.5 w-3.5" />
-                  ) : (
-                    <RotateCw className="h-3.5 w-3.5" />
-                  )
-                }
-                onClick={() => void checkForUpdate(true)}
-              >
-                Check for updates
-              </Button>
-              {updateInfo?.update_available && updateInfo.can_apply && (
+            {canUpdateSeraphiel && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
                 <Button
                   size="sm"
-                  prefix={<Download className="h-3.5 w-3.5" />}
-                  onClick={() => setUpdateConfirmOpen(true)}
+                  ghost
+                  disabled={checkingUpdate}
+                  prefix={
+                    checkingUpdate ? (
+                      <Spinner className="h-3.5 w-3.5" />
+                    ) : (
+                      <RotateCw className="h-3.5 w-3.5" />
+                    )
+                  }
+                  onClick={() => void checkForUpdate(true)}
                 >
-                  Update now
+                  Check for updates
                 </Button>
-              )}
-              {updateInfo &&
-                !updateInfo.can_apply &&
-                updateInfo.update_available && (
+                {updateInfo?.update_available && updateInfo.can_apply && (
+                  <Button
+                    size="sm"
+                    prefix={<Download className="h-3.5 w-3.5" />}
+                    onClick={() => setUpdateConfirmOpen(true)}
+                  >
+                    Update now
+                  </Button>
+                )}
+                {updateInfo &&
+                  !updateInfo.can_apply &&
+                  updateInfo.update_available && (
+                    <span className="text-xs text-muted-foreground">
+                      Update with{" "}
+                      <span className="font-mono">{updateInfo.update_command}</span>
+                    </span>
+                  )}
+                {updateInfo?.message && !updateInfo.update_available && (
                   <span className="text-xs text-muted-foreground">
-                    Update with{" "}
-                    <span className="font-mono">{updateInfo.update_command}</span>
+                    {updateInfo.message}
                   </span>
                 )}
-              {updateInfo?.message && !updateInfo.update_available && (
-                <span className="text-xs text-muted-foreground">
-                  {updateInfo.message}
-                </span>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>
@@ -1181,11 +1198,24 @@ export default function SystemPage() {
               disabled={!importPath.trim()}
               onClick={() => {
                 if (!importPath.trim()) return;
-                runOp(() => api.runImport(importPath.trim()), "Import");
+                setImportConfirmOpen(true);
               }}
             >
               Import
             </Button>
+            <ConfirmDialog
+              open={importConfirmOpen}
+              title="Restore from backup?"
+              description={`This will overwrite your current Seraphiel configuration, skills, sessions, and data with the contents of ${importPath.trim() || "the archive"}. This cannot be undone.`}
+              destructive
+              confirmLabel="Restore"
+              cancelLabel="Cancel"
+              onCancel={() => setImportConfirmOpen(false)}
+              onConfirm={() => {
+                setImportConfirmOpen(false);
+                runOp(() => api.runImport(importPath.trim(), true), "Import");
+              }}
+            />
           </CardContent>
         </Card>
       </section>

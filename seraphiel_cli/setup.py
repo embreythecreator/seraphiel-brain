@@ -93,7 +93,7 @@ _DEFAULT_PROVIDER_MODELS = {
         "gemini-3.1-pro-preview", "gemini-3-pro-preview",
         "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview",
     ],
-    "zai": ["glm-5.1", "glm-5", "glm-4.7", "glm-4.5", "glm-4.5-flash"],
+    "zai": ["glm-5.2", "glm-5.1", "glm-5", "glm-4.7", "glm-4.5", "glm-4.5-flash"],
     "kimi-coding": ["kimi-k2.6", "kimi-k2.5", "kimi-k2-thinking", "kimi-k2-turbo-preview"],
     "kimi-coding-cn": ["kimi-k2.6", "kimi-k2.5", "kimi-k2-thinking", "kimi-k2-turbo-preview"],
     "stepfun": ["step-3.5-flash", "step-3.5-flash-2603"],
@@ -1655,13 +1655,18 @@ def _setup_telegram_auto_result():
 
     profile_name: str | None = None
     try:
-        seraphiel_home = str(get_seraphiel_home())
-        if "/profiles/" in seraphiel_home:
-            profile_name = seraphiel_home.rstrip("/").rsplit("/", 1)[-1]
+        profile_name = _profile_name_from_seraphiel_home(Path(get_seraphiel_home()))
     except Exception:
         pass
 
     return auto_setup_telegram_bot_result(profile_name=profile_name)
+
+
+def _profile_name_from_seraphiel_home(seraphiel_home) -> str | None:
+    """Return the active profile name when SERAPHIEL_HOME is a profile dir."""
+    if seraphiel_home.parent.name == "profiles":
+        return seraphiel_home.name
+    return None
 
 
 def _setup_telegram_auto() -> str | None:

@@ -343,7 +343,7 @@ The registry of record is `seraphiel_cli/commands.py` — every consumer
 
 ```
 ~/.seraphiel/config.yaml       Main configuration
-~/.seraphiel/.env              API keys and secrets
+~/.seraphiel/.env              API keys and secrets (under $SERAPHIEL_HOME if set)
 $SERAPHIEL_HOME/skills/        Installed skills
 ~/.seraphiel/sessions/         Gateway routing index, request dumps, *.jsonl transcripts (and optional per-session JSON snapshots when sessions.write_json_snapshots: true)
 ~/.seraphiel/state.db          Canonical session store (SQLite + FTS5)
@@ -908,7 +908,7 @@ seraphiel-brain/
 └── website/              # Docusaurus docs site
 ```
 
-Config: `~/.seraphiel/config.yaml` (settings), `~/.seraphiel/.env` (API keys).
+Config: `~/.seraphiel/config.yaml` (settings), `~/.seraphiel/.env` (API keys) — both under `$SERAPHIEL_HOME` when it is set.
 
 ### Adding a Tool (3 files)
 

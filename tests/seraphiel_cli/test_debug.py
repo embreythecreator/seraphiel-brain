@@ -31,6 +31,9 @@ def seraphiel_home(tmp_path, monkeypatch):
     (logs_dir / "gateway.log").write_text(
         "2026-04-12 17:00:10 INFO gateway.run: started\n"
     )
+    (logs_dir / "gui.log").write_text(
+        "2026-04-12 17:00:12 INFO seraphiel_cli.web_server: dashboard request\n"
+    )
     (logs_dir / "desktop.log").write_text(
         "2026-04-12 17:00:15 INFO desktop: backend spawned\n"
     )
@@ -454,6 +457,15 @@ class TestCollectDebugReport:
 
         assert "--- gateway.log" in report
 
+    def test_report_includes_gui_log(self, seraphiel_home):
+        from seraphiel_cli.debug import collect_debug_report
+
+        with patch("seraphiel_cli.dump.run_dump"):
+            report = collect_debug_report(log_lines=50)
+
+        assert "--- gui.log" in report
+        assert "dashboard request" in report
+
     def test_report_includes_desktop_log(self, seraphiel_home):
         from seraphiel_cli.debug import collect_debug_report
 
@@ -538,8 +550,8 @@ class TestRunDebugShare:
         assert "FULL agent.log" in out
         assert "FULL gateway.log" in out
 
-    def test_share_uploads_four_pastes(self, seraphiel_home, capsys):
-        """Successful share uploads report + agent.log + gateway.log + desktop.log."""
+    def test_share_uploads_five_pastes(self, seraphiel_home, capsys):
+        """Successful share uploads report + agent.log + gateway.log + gui.log + desktop.log."""
         from seraphiel_cli.debug import run_debug_share
 
         args = MagicMock()
@@ -561,15 +573,17 @@ class TestRunDebugShare:
             run_debug_share(args)
 
         out = capsys.readouterr().out
-        # Should have 4 uploads: report, agent.log, gateway.log, desktop.log
-        assert call_count[0] == 4
+        # Should have 5 uploads: report, agent.log, gateway.log, gui.log, desktop.log
+        assert call_count[0] == 5
         assert "paste.rs/paste1" in out  # Report
         assert "paste.rs/paste2" in out  # agent.log
         assert "paste.rs/paste3" in out  # gateway.log
-        assert "paste.rs/paste4" in out  # desktop.log
+        assert "paste.rs/paste4" in out  # gui.log
+        assert "paste.rs/paste5" in out  # desktop.log
         assert "Report" in out
         assert "agent.log" in out
         assert "gateway.log" in out
+        assert "gui.log" in out
         assert "desktop.log" in out
 
         # Each log paste should start with the dump header
@@ -579,7 +593,10 @@ class TestRunDebugShare:
         gateway_paste = uploaded_content[2]
         assert "--- seraphiel dump ---" in gateway_paste
         assert "--- full gateway.log ---" in gateway_paste
-        desktop_paste = uploaded_content[3]
+        gui_paste = uploaded_content[3]
+        assert "--- seraphiel dump ---" in gui_paste
+        assert "--- full gui.log ---" in gui_paste
+        desktop_paste = uploaded_content[4]
         assert "--- seraphiel dump ---" in desktop_paste
         assert "--- full desktop.log ---" in desktop_paste
 

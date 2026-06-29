@@ -48,7 +48,7 @@ Pick the row that matches your goal:
 
 ## 1. Install Seraphiel Brain
 ### With the Seraphiel Desktop installer on macOS or Windows (recommended)
-To easily install the command-line and desktop applications, [download the Seraphiel Desktop installer](https://seraphiel-brain.embreythecreator.com/desktop) from our website and run it.
+To easily install the command-line and desktop applications, [download the Seraphiel Desktop installer](https://seraphiel-brain.embreythecreator.com/) from our website and run it.
 
 ### Without Seraphiel Desktop:
 For a command-line only install without Seraphiel Desktop, run:

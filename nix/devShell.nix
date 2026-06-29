@@ -12,7 +12,6 @@
     let
       packages = builtins.attrValues self'.packages;
       seraphielNpmLib = self'.packages.default.passthru.seraphielNpmLib;
-      fixLockfilesExe = pkgs.lib.getExe self'.packages.fix-lockfiles;
 
       # Collect all packageJsonPath values from npm workspace packages.
       npmPackageJsonPaths = builtins.filter (p: p != null) (
@@ -33,7 +32,7 @@
         shellHook = ''
           echo "Seraphiel Brain dev shell"
           ${combinedNonNpm}
-          ${seraphielNpmLib.mkNpmDevShellHook npmPackageJsonPaths fixLockfilesExe}
+          ${seraphielNpmLib.mkNpmDevShellHook npmPackageJsonPaths}
           echo "Ready. Run 'seraphiel' to start."
         '';
       };

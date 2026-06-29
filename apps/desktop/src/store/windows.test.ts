@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { canOpenSessionWindow, openSessionInNewWindow } from './windows'
+import { canOpenSessionWindow, openNewSessionInNewWindow, openSessionInNewWindow } from './windows'
 
 const desktopWindow = window as unknown as { seraphielDesktop?: Window['seraphielDesktop'] }
 const initialSeraphielDesktop = desktopWindow.seraphielDesktop
@@ -11,9 +11,13 @@ vi.mock('./notifications', () => ({
   notifyError: (...args: unknown[]) => notifyError(...args)
 }))
 
-function installBridge(openSessionWindow?: Window['seraphielDesktop']['openSessionWindow']) {
+function installBridge(
+  openSessionWindow?: Window['seraphielDesktop']['openSessionWindow'],
+  openNewSessionWindow?: Window['seraphielDesktop']['openNewSessionWindow']
+) {
   desktopWindow.seraphielDesktop = {
-    ...(openSessionWindow ? { openSessionWindow } : {})
+    ...(openSessionWindow ? { openSessionWindow } : {}),
+    ...(openNewSessionWindow ? { openNewSessionWindow } : {})
   } as unknown as Window['seraphielDesktop']
 }
 
@@ -71,7 +75,17 @@ describe('openSessionInNewWindow', () => {
 
     await openSessionInNewWindow('s1')
 
-    expect(open).toHaveBeenCalledWith('s1')
+    expect(open).toHaveBeenCalledWith('s1', undefined)
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('forwards the watch flag for spectator (subagent) windows', async () => {
+    const open = vi.fn().mockResolvedValue({ ok: true })
+    installBridge(open)
+
+    await openSessionInNewWindow('s1', { watch: true })
+
+    expect(open).toHaveBeenCalledWith('s1', { watch: true })
     expect(notifyError).not.toHaveBeenCalled()
   })
 
@@ -87,6 +101,42 @@ describe('openSessionInNewWindow', () => {
     installBridge(vi.fn().mockRejectedValue(new Error('boom')))
 
     await openSessionInNewWindow('s1')
+
+    expect(notifyError).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('openNewSessionInNewWindow', () => {
+  it('no-ops gracefully when the bridge is absent (web fallback)', async () => {
+    delete desktopWindow.seraphielDesktop
+
+    await openNewSessionInNewWindow()
+
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('no-ops when openNewSessionWindow is missing', async () => {
+    installBridge(vi.fn().mockResolvedValue({ ok: true }))
+
+    await openNewSessionInNewWindow()
+
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('invokes the bridge', async () => {
+    const openNew = vi.fn().mockResolvedValue({ ok: true })
+    installBridge(vi.fn().mockResolvedValue({ ok: true }), openNew)
+
+    await openNewSessionInNewWindow()
+
+    expect(openNew).toHaveBeenCalledTimes(1)
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('notifies on an ok:false result', async () => {
+    installBridge(vi.fn().mockResolvedValue({ ok: true }), vi.fn().mockResolvedValue({ ok: false, error: 'nope' }))
+
+    await openNewSessionInNewWindow()
 
     expect(notifyError).toHaveBeenCalledTimes(1)
   })

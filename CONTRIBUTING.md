@@ -78,7 +78,41 @@ This isn't a quality bar — it's a coupling-and-maintenance decision. Memory pr
 | **uv** | Fast Python package manager ([install](https://docs.astral.sh/uv/)) |
 | **Node.js 20+** | Optional — needed for browser tools and WhatsApp bridge (matches root `package.json` engines) |
 
-### Clone and install
+### Install with the standard installer
+
+For most contributors, the best development bootstrap is the same path users
+take: run the standard installer, then work inside the repository it cloned.
+The installer creates the Seraphiel venv, wires the `seraphiel` command, stamps the
+install method for `seraphiel update`, and clones the full git project into
+`$SERAPHIEL_HOME/seraphiel-brain` (usually `~/.seraphiel/seraphiel-brain`). That keeps your
+development environment on the same layout the CLI, updater, lazy dependency
+installer, gateway, and docs assume.
+
+```bash
+curl -fsSL https://seraphiel-brain.embreythecreator.com/install.sh | bash
+cd "${SERAPHIEL_HOME:-$HOME/.seraphiel}/seraphiel-brain"
+
+# Add dev/test extras on top of the standard install.
+uv pip install -e ".[all,dev]"
+
+# Optional: browser tools / docs site dependencies.
+npm install
+```
+
+After that, create branches and run tests from that checkout:
+
+```bash
+git checkout -b fix/description
+scripts/run_tests.sh
+```
+
+### Manual clone fallback
+
+Use this only if you intentionally do not want Seraphiel' managed install layout
+(for example, a throwaway clone inside a container or CI job). If you install
+this way, make sure you run the `seraphiel` entrypoint from this venv; running the
+system `python3 -m seraphiel_cli.main` can pick up unrelated system Python
+packages.
 
 ```bash
 git clone https://github.com/embreythecreator/seraphiel-brain.git
@@ -109,13 +143,17 @@ echo "OPENROUTER_API_KEY=***" >> ~/.seraphiel/.env
 ### Run
 
 ```bash
-# Symlink for global access
-mkdir -p ~/.local/bin
-ln -sf "$(pwd)/venv/bin/seraphiel" ~/.local/bin/seraphiel
-
-# Verify
+# The standard installer already put `seraphiel` on PATH.
 seraphiel doctor
 seraphiel chat -q "Hello"
+```
+
+If you used the manual clone fallback, run `./seraphiel` from the checkout or
+symlink this clone's venv explicitly:
+
+```bash
+mkdir -p ~/.local/bin
+ln -sf "$(pwd)/venv/bin/seraphiel" ~/.local/bin/seraphiel
 ```
 
 ### Run tests

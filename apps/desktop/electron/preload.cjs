@@ -5,7 +5,8 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
   revalidateConnection: () => ipcRenderer.invoke('seraphiel:connection:revalidate'),
   touchBackend: profile => ipcRenderer.invoke('seraphiel:backend:touch', profile),
   getGatewayWsUrl: profile => ipcRenderer.invoke('seraphiel:gateway:ws-url', profile),
-  openSessionWindow: sessionId => ipcRenderer.invoke('seraphiel:window:openSession', sessionId),
+  openSessionWindow: (sessionId, opts) => ipcRenderer.invoke('seraphiel:window:openSession', sessionId, opts),
+  openNewSessionWindow: () => ipcRenderer.invoke('seraphiel:window:openNewSession'),
   getBootProgress: () => ipcRenderer.invoke('seraphiel:boot-progress:get'),
   getConnectionConfig: profile => ipcRenderer.invoke('seraphiel:connection-config:get', profile),
   saveConnectionConfig: payload => ipcRenderer.invoke('seraphiel:connection-config:save', payload),
@@ -39,6 +40,8 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
   watchPreviewFile: url => ipcRenderer.invoke('seraphiel:watchPreviewFile', url),
   stopPreviewFileWatch: id => ipcRenderer.invoke('seraphiel:stopPreviewFileWatch', id),
   setTitleBarTheme: payload => ipcRenderer.send('seraphiel:titlebar-theme', payload),
+  setNativeTheme: mode => ipcRenderer.send('seraphiel:native-theme', mode),
+  setTranslucency: payload => ipcRenderer.send('seraphiel:translucency', payload),
   setPreviewShortcutActive: active => ipcRenderer.send('seraphiel:previewShortcutActive', Boolean(active)),
   openExternal: url => ipcRenderer.invoke('seraphiel:openExternal', url),
   fetchLinkTitle: url => ipcRenderer.invoke('seraphiel:fetchLinkTitle', url),
@@ -52,6 +55,7 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
   getRecentLogs: () => ipcRenderer.invoke('seraphiel:logs:recent'),
   readDir: dirPath => ipcRenderer.invoke('seraphiel:fs:readDir', dirPath),
   gitRoot: startPath => ipcRenderer.invoke('seraphiel:fs:gitRoot', startPath),
+  worktrees: cwds => ipcRenderer.invoke('seraphiel:fs:worktrees', cwds),
   terminal: {
     dispose: id => ipcRenderer.invoke('seraphiel:terminal:dispose', id),
     resize: (id, size) => ipcRenderer.invoke('seraphiel:terminal:resize', id, size),
@@ -80,10 +84,26 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
     ipcRenderer.on('seraphiel:open-updates', listener)
     return () => ipcRenderer.removeListener('seraphiel:open-updates', listener)
   },
+  onDeepLink: callback => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('seraphiel:deep-link', listener)
+    return () => ipcRenderer.removeListener('seraphiel:deep-link', listener)
+  },
+  signalDeepLinkReady: () => ipcRenderer.invoke('seraphiel:deep-link-ready'),
   onWindowStateChanged: callback => {
     const listener = (_event, payload) => callback(payload)
     ipcRenderer.on('seraphiel:window-state-changed', listener)
     return () => ipcRenderer.removeListener('seraphiel:window-state-changed', listener)
+  },
+  onFocusSession: callback => {
+    const listener = (_event, sessionId) => callback(sessionId)
+    ipcRenderer.on('seraphiel:focus-session', listener)
+    return () => ipcRenderer.removeListener('seraphiel:focus-session', listener)
+  },
+  onNotificationAction: callback => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('seraphiel:notification-action', listener)
+    return () => ipcRenderer.removeListener('seraphiel:notification-action', listener)
   },
   onPreviewFileChanged: callback => {
     const listener = (_event, payload) => callback(payload)

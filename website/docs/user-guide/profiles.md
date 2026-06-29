@@ -50,7 +50,7 @@ You can also set or auto-generate the description later with `seraphiel profile 
 seraphiel profile create work --clone
 ```
 
-Copies your current profile's `config.yaml`, `.env`, and `SOUL.md` into the new profile. Same API keys and model, but fresh sessions and memory. Edit `~/.seraphiel/profiles/work/.env` for different API keys, or `~/.seraphiel/profiles/work/SOUL.md` for a different personality.
+Copies your current profile's `config.yaml`, `.env`, `SOUL.md`, and skills into the new profile. Same API keys, model, and capabilities, but fresh sessions and memory. Edit `~/.seraphiel/profiles/work/.env` for different API keys, or `~/.seraphiel/profiles/work/SOUL.md` for a different personality.
 
 ### Clone everything (`--clone-all`)
 
@@ -58,16 +58,22 @@ Copies your current profile's `config.yaml`, `.env`, and `SOUL.md` into the new 
 seraphiel profile create backup --clone-all
 ```
 
-Copies **everything** — config, API keys, personality, all memories, full session history, skills, cron jobs, plugins. A complete snapshot. Useful for backups or forking an agent that already has context.
+Copies **everything** — config, API keys, personality, all memories, skills, cron jobs, plugins. A complete working snapshot. Per-profile history is excluded (session history, `state.db`, `backups/`, `state-snapshots/`, `checkpoints/`) — these belong to the source profile and can reach tens of GB. For a full backup including history, use `seraphiel profile export` or `seraphiel backup` instead.
 
 ### Clone from a specific profile
 
 ```bash
-seraphiel profile create work --clone --clone-from coder
+seraphiel profile create work --clone-from coder
+```
+
+`--clone-from <source>` selects the source profile directly and implies a config/skills/SOUL clone. Combine it with `--clone-all` when you want a full copy of that source profile:
+
+```bash
+seraphiel profile create work-backup --clone-from coder --clone-all
 ```
 
 :::tip Honcho memory + profiles
-When Honcho is enabled, `--clone` automatically creates a dedicated AI peer for the new profile while sharing the same user workspace. Each profile builds its own observations and identity. See [Honcho -- Multi-agent / Profiles](./features/memory-providers.md#honcho) for details.
+When Honcho is enabled, clone operations automatically create a dedicated AI peer for the new profile while sharing the same user workspace. Each profile builds its own observations and identity. See [Honcho -- Multi-agent / Profiles](./features/memory-providers.md#honcho) for details.
 :::
 
 ## Using profiles
@@ -199,6 +205,20 @@ If you want this profile to work in a specific project by default, also set its 
 coder config set terminal.cwd /absolute/path/to/project
 ```
 
+### From the dashboard
+
+The [web dashboard](features/web-dashboard.md#managing-multiple-profiles)
+is a machine-level surface that can manage **any** profile's config, API
+keys, skills, MCPs, and model via the profile switcher in its sidebar — no
+per-profile dashboard needed. `coder dashboard` routes to the machine
+dashboard with the `coder` profile preselected. The dashboard's Chat tab
+also follows the switcher, spawning a conversation under the selected
+profile's home.
+
+Note: "Set as active" on the dashboard's Profiles page is the sticky
+default for **future CLI/gateway runs** (same as `seraphiel profile use`) —
+to edit a profile from the dashboard, use the switcher instead.
+
 ## Updating
 
 `seraphiel update` pulls code once (shared) and syncs new bundled skills to **all** profiles automatically:
@@ -252,6 +272,32 @@ Add the line to your `~/.bashrc` or `~/.zshrc` for persistent completion. Comple
 Profiles use the `SERAPHIEL_HOME` environment variable. When you run `coder chat`, the wrapper script sets `SERAPHIEL_HOME=~/.seraphiel/profiles/coder` before launching seraphiel. Since 119+ files in the codebase resolve paths via `get_seraphiel_home()`, Seraphiel state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
 
 This is separate from terminal working directory. Tool execution starts from `terminal.cwd` (or the launch directory when `cwd: "."` on the local backend), not automatically from `SERAPHIEL_HOME`.
+
+On host installs, tool subprocesses keep your real OS-user `HOME` by default so
+existing CLI credentials under `~` keep working across profiles. Profile data is
+isolated by `SERAPHIEL_HOME`, not by changing `HOME`. Container backends still use
+`{SERAPHIEL_HOME}/home` for persistent tool state, and host users who need strict
+per-profile tool config can opt in with `terminal.home_mode: profile`.
+
+This means two things that are easy to mix up:
+
+- `SERAPHIEL_HOME` is the profile boundary. It controls Seraphiel config, `.env`,
+  memory, sessions, skills, logs, cron jobs, gateway state, and other Seraphiel
+  data.
+- `HOME` is the operating-system/user home that external CLIs expect. On host
+  installs, Seraphiel keeps it as the real user home by default so tools like
+  `git`, `ssh`, `gh`, `az`, `npm`, Claude Code, and Codex find the same
+  credentials they use in your normal shell.
+
+The tradeoff is that host profiles share normal user-level CLI state by default.
+If you need separate CLI identities per profile, set `terminal.home_mode:
+profile` in that profile's `config.yaml`. In that mode Seraphiel launches tool
+subprocesses with `HOME={SERAPHIEL_HOME}/home`; you then need to initialize or link
+the profile-specific `~/.ssh`, `~/.gitconfig`, `~/.config/gh`, cloud CLI auth,
+Claude/Codex auth, npm state, and similar files inside that profile home.
+
+Seraphiel also exposes `SERAPHIEL_REAL_HOME` to subprocesses so scripts can still find
+the actual account home when `home_mode: profile` is active.
 
 The default profile is simply `~/.seraphiel` itself. No migration needed — existing installs work identically.
 

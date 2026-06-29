@@ -28,14 +28,13 @@ as_seraphiel() { [ "$(id -u)" = 0 ] || { "$@"; return; }; s6-setuidgid seraphiel
 # arbitrary host UID (the classic `--user $(id -u):$(id -g)` invocation people
 # used in the tini era to make container-written files match their host user).
 #
-# Under s6-overlay this no longer works: the bootstrap (UID remap, volume +
-# build-tree chown, config seeding) all require root, and they're skipped when
-# the container starts non-root. The baked image trees (/opt/data, /opt/seraphiel/
-# .venv, ui-tui, node_modules) stay owned by the seraphiel build UID (10000), so an
-# arbitrary `--user` UID can't write them — the runtime then fails with EACCES
-# on a bind mount, or hard-crashes on a named volume (Docker initialises the
-# volume from the image as UID 10000, and the non-root start can't even `cd`
-# into $SERAPHIEL_HOME). See #34837 for the supervision-tree side of this.
+# Under s6-overlay this no longer works: the bootstrap (UID remap, data-volume
+# ownership, config seeding) requires root, and it is skipped when the container
+# starts non-root. The baked install tree under /opt/seraphiel is intentionally
+# root-owned and non-writable; mutable runtime state must live under
+# $SERAPHIEL_HOME. An arbitrary `--user` UID therefore cannot repair or populate
+# the data volume, and startup fails with EACCES. See #34837 for the
+# supervision-tree side of this.
 #
 # The supported way to match host-side ownership is to start as root (the image
 # default) and pass SERAPHIEL_UID/SERAPHIEL_GID — or the PUID/PGID aliases — which the
@@ -53,9 +52,10 @@ if [ "$cur_uid" != 0 ] && [ "$cur_uid" != "$(id -u seraphiel)" ]; then
 [stage2] ERROR: container started with --user $cur_uid (an arbitrary, non-seraphiel UID).
 
 This is not supported under the s6-overlay image. The container bootstrap
-(UID remap, volume ownership, dependency installs) needs to start as root,
-and the baked image directories are owned by the seraphiel user (UID $(id -u seraphiel)),
-so a pinned --user UID cannot write them — startup will fail.
+(UID remap, data-volume ownership, config seeding) needs to start as root,
+and the baked /opt/seraphiel install tree is intentionally root-owned and
+non-writable, so a pinned --user UID cannot repair startup state — startup
+will fail.
 
 To make container-written files match your HOST user, DON'T use --user.
 Start the container as root (the default) and pass your host UID/GID instead:
@@ -207,49 +207,13 @@ if [ "$needs_chown" = true ]; then
     done
 fi
 
-# --- Fix ownership of build trees under $INSTALL_DIR ---
-# Seraphiel-owned trees under $INSTALL_DIR must be re-chowned whenever the
-# runtime seraphiel UID no longer owns them — otherwise:
-#   - .venv: lazy_deps.py cannot install platform packages (discord.py,
-#     telegram, slack, etc.) with EACCES (#15012, #21100)
-#   - ui-tui: esbuild rebuilds dist/entry.js on every TUI launch (when
-#     the source mtime is newer than dist/ or when SERAPHIEL_TUI_FORCE_BUILD
-#     is set) and writes to ui-tui/dist/. Without this chown the new
-#     seraphiel UID can't write the build output (#28851).
-#   - gateway: Python writes __pycache__ and runtime artifacts beneath the
-#     gateway package on first import. After a UID remap those source-owned
-#     paths still belong to the build-time UID (10000) unless repaired here,
-#     producing EACCES for the supervised gateway (#27221).
-#   - node_modules: root-level dependencies (puppeteer, web tooling)
-#     that runtime code may walk/update.
-# The set mirrors the build-time `chown -R seraphiel:seraphiel` line in the
-# Dockerfile — keep them in sync if the Dockerfile chown set changes.
-# These are under $INSTALL_DIR (not $SERAPHIEL_HOME), so the bind-mount
-# concern doesn't apply — recursive is fine.
-#
-# This MUST be gated independently of the $SERAPHIEL_HOME ownership check
-# above. `usermod -u <new> seraphiel` re-chowns the seraphiel home dir
-# ($SERAPHIEL_HOME == /opt/data) to the new UID as a side effect, so after a
-# SERAPHIEL_UID/PUID remap `stat $SERAPHIEL_HOME` always already matches the new
-# UID and `needs_chown` is false — but the build trees under /opt/seraphiel
-# are NOT touched by usermod and remain owned by the build-time UID
-# (10000). Gating them on $SERAPHIEL_HOME ownership (as #35027 did) silently
-# skipped this chown on the common PUID/NAS path, regressing lazy installs
-# and TUI rebuilds. Probe the build trees directly instead: chown only
-# when the venv is not already owned by the runtime seraphiel UID. Idempotent
-# and skips the expensive recursive chown on every restart once ownership
-# is settled.
-venv_owner=$(stat -c %u "$INSTALL_DIR/.venv" 2>/dev/null || echo "")
-if [ -n "$venv_owner" ] && [ "$venv_owner" != "$actual_seraphiel_uid" ]; then
-    echo "[stage2] Fixing ownership of build trees under $INSTALL_DIR to seraphiel ($actual_seraphiel_uid)"
-    chown -R seraphiel:seraphiel \
-        "$INSTALL_DIR/.venv" \
-        "$INSTALL_DIR/ui-tui" \
-        "$INSTALL_DIR/gateway" \
-        "$INSTALL_DIR/node_modules" \
-        2>/dev/null || \
-        echo "[stage2] Warning: chown of build trees failed (rootless container?) — continuing"
-fi
+# --- Immutable install tree ---
+# Do not chown runtime code or dependency trees under $INSTALL_DIR back to the
+# seraphiel user. Hosted/container instances keep mutable state under
+# $SERAPHIEL_HOME (/opt/data) and run with PYTHONDONTWRITEBYTECODE plus
+# SERAPHIEL_DISABLE_LAZY_INSTALLS=1. Keeping /opt/seraphiel root-owned and
+# non-writable prevents an agent session from self-modifying the installed
+# source, venv, TUI bundle, or node_modules and bricking the gateway.
 
 # Always reset ownership of $SERAPHIEL_HOME/profiles to seraphiel on every
 # boot. Profile dirs and files can land owned by root when commands
@@ -316,6 +280,7 @@ as_seraphiel mkdir -p \
     "$SERAPHIEL_HOME/cron" \
     "$SERAPHIEL_HOME/sessions" \
     "$SERAPHIEL_HOME/logs" \
+    "$SERAPHIEL_HOME/logs/gateways" \
     "$SERAPHIEL_HOME/hooks" \
     "$SERAPHIEL_HOME/memories" \
     "$SERAPHIEL_HOME/skills" \
@@ -326,13 +291,25 @@ as_seraphiel mkdir -p \
     "$SERAPHIEL_HOME/pairing" \
     "$SERAPHIEL_HOME/platforms/pairing"
 
-# --- Install-method stamp (read by detect_install_method() in seraphiel status) ---
-# Preserved from the tini-era entrypoint (PR #27843). Must be written as
-# the seraphiel user so ownership matches the file's documented owner.
-# tee is invoked directly via s6-setuidgid (no `sh -c` wrapper) for the
-# same shell-metacharacter safety described above.
-printf 'docker\n' | as_seraphiel tee "$SERAPHIEL_HOME/.install_method" >/dev/null \
-    || true
+# --- Install-method stamp ---
+# The 'docker' stamp is baked into the immutable install tree at
+# /opt/seraphiel/.install_method (see Dockerfile), NOT written here into
+# $SERAPHIEL_HOME. detect_install_method() reads the code-scoped stamp first.
+#
+# Why we no longer stamp $SERAPHIEL_HOME: it is a shared DATA volume, commonly
+# bind-mounted from the host (~/.seraphiel:/opt/data) and sometimes shared with a
+# host-side Desktop/CLI install. Stamping 'docker' here clobbered that host
+# install's marker, so its in-app updater read 'docker' and refused to run
+# 'seraphiel update'. To heal homes already poisoned by older images, remove a
+# stale 'docker' stamp from $SERAPHIEL_HOME if one is present (the host install's
+# own installer re-creates its code-scoped stamp; a genuine container relies on
+# the baked /opt/seraphiel stamp, so deleting the data-dir copy is safe).
+if [ -f "$SERAPHIEL_HOME/.install_method" ]; then
+    stamped="$(tr -d '[:space:]' < "$SERAPHIEL_HOME/.install_method" 2>/dev/null || true)"
+    if [ "$stamped" = "docker" ]; then
+        rm -f "$SERAPHIEL_HOME/.install_method" 2>/dev/null || true
+    fi
+fi
 
 # --- Seed config files (only on first boot) ---
 seed_one() {

@@ -30,7 +30,7 @@ platforms:
 ```
 
 ### Option 3: Environment variables
-Add to `~/.seraphiel/.env`:
+Add to `${SERAPHIEL_HOME:-~/.seraphiel}/.env`:
 ```bash
 WEBHOOK_ENABLED=true
 WEBHOOK_PORT=8644

@@ -50,8 +50,6 @@
         tui = seraphielAgent.seraphielTui;
         web = seraphielAgent.seraphielWeb;
         desktop = seraphielAgent.seraphielDesktop;
-
-        fix-lockfiles = seraphielAgent.seraphielNpmLib.mkFixLockfiles { attr = "tui"; };
       };
     };
 }

@@ -34,7 +34,7 @@ It builds and launches the GUI against your existing install — same config, ke
 
 ### Prebuilt installers
 
-Prebuilt installers are built and distributed via [the Seraphiel Desktop website.](https://seraphiel-brain.embreythecreator.com/desktop).
+Prebuilt installers are built and distributed via [the Seraphiel Desktop website.](https://seraphiel-brain.embreythecreator.com/).
 
 ---
 

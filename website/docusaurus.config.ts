@@ -66,6 +66,23 @@ const config: Config = {
     ],
   ],
 
+  plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        // Static-host redirects for renamed doc pages (GitHub Pages can't
+        // do server-side redirects). Paths are relative to baseUrl (/docs/).
+        redirects: [
+          {
+            // Renamed in #44470 (Automation Blueprints terminology rebrand)
+            from: '/guides/automation-templates',
+            to: '/guides/automation-blueprints',
+          },
+        ],
+      },
+    ],
+  ],
+
   presets: [
     [
       'classic',
@@ -114,7 +131,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://seraphiel-brain.embreythecreator.com/desktop',
+          href: 'https://seraphiel-brain.embreythecreator.com/',
           label: 'Download',
           position: 'left',
         },
@@ -162,13 +179,13 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'Desktop Download', href: 'https://seraphiel-brain.embreythecreator.com/desktop' },
+            { label: 'Desktop Download', href: 'https://seraphiel-brain.embreythecreator.com/' },
             { label: 'GitHub', href: 'https://github.com/embreythecreator/seraphiel-brain' },
             { label: 'Seraphiel', href: 'https://embreythecreator.com' },
           ],
         },
       ],
-      copyright: `Built by <a href="https://embreythecreator.com">Seraphiel</a> · MIT License · ${new Date().getFullYear()}`,
+      copyright: `Created by <a href="https://embreythecreator.com">Embrey The Creator</a> · MIT License · ${new Date().getFullYear()}`,
     },
     prism: {
       theme: prismThemes.github,

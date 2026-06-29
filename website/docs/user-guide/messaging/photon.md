@@ -145,7 +145,7 @@ BlueBubbles iMessage channel uses.
 ## Start the gateway
 
 ```bash
-seraphiel gateway start --platform photon
+seraphiel gateway start
 ```
 
 You'll see something like:

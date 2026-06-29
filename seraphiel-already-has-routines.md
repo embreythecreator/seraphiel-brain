@@ -149,7 +149,7 @@ seraphiel webhook subscribe pr-review \
   --deliver github_comment
 ```
 
-Full automation templates gallery: [seraphiel-brain.embreythecreator.com/docs/guides/automation-templates](https://seraphiel-brain.embreythecreator.com/docs/guides/automation-templates)
+Full automation blueprints gallery: [seraphiel-brain.embreythecreator.com/docs/reference/automation-blueprints-catalog](https://seraphiel-brain.embreythecreator.com/docs/reference/automation-blueprints-catalog)
 
 Documentation: [seraphiel-brain.embreythecreator.com](https://seraphiel-brain.embreythecreator.com)
 
@@ -157,4 +157,4 @@ GitHub: [github.com/embreythecreator/seraphiel-brain](https://github.com/embreyt
 
 ---
 
-*Seraphiel Brain is built by [Seraphiel](https://embreythecreator.com). Open source, model-agnostic, runs on your infrastructure.*
+*Seraphiel Brain is created by [Embrey The Creator](https://embreythecreator.com). Open source, model-agnostic, runs on your infrastructure.*

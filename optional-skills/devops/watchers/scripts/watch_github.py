@@ -8,7 +8,8 @@ Usage (via cron with --no-agent):
       --script "$SERAPHIEL_HOME/skills/devops/watchers/scripts/watch_github.py" \\
       --script-args "--name seraphiel-issues --repo embreythecreator/seraphiel-brain --scope issues"
 
-Set GITHUB_TOKEN (or GH_TOKEN) in ~/.seraphiel/.env to avoid the 60 req/hr
+Set GITHUB_TOKEN (or GH_TOKEN) in the Seraphiel .env file
+(``${SERAPHIEL_HOME:-~/.seraphiel}/.env``) to avoid the 60 req/hr
 anonymous rate limit.
 
 Scopes: issues | pulls | releases | commits.  Or pass --search QUERY to

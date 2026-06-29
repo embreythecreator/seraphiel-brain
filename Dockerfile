@@ -9,8 +9,11 @@ FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie@sha256:b3c543b6c4f23a5f2df228
 FROM node:22-bookworm-slim@sha256:7af03b14a13c8cdd38e45058fd957bf00a72bbe17feac43b1c15a689c029c732 AS node_source
 FROM debian:13.4
 
-# Disable Python stdout buffering to ensure logs are printed immediately
+# Disable Python stdout buffering to ensure logs are printed immediately.
+# Do not write .pyc files at runtime: /opt/seraphiel is immutable in the
+# published container and writable state belongs under /opt/data.
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Store Playwright browsers outside the volume mount so the build-time
 # install survives the /opt/data volume overlay at runtime.
@@ -186,35 +189,37 @@ RUN cd web && npm run build && \
 
 # ---------- Source code ----------
 # .dockerignore excludes node_modules, so the installs above survive.
-COPY --chown=seraphiel:seraphiel . .
+COPY . .
 
 # ---------- Permissions ----------
-# Make install dir world-readable so any SERAPHIEL_UID can read it at runtime.
-# The venv needs to be traversable too.
-# node_modules trees additionally need to be writable by the seraphiel user
-# so the runtime `npm install` triggered by _tui_need_npm_install() in
-# seraphiel_cli/main.py succeeds (see #18800). /opt/seraphiel/web is build-time
-# only (SERAPHIEL_WEB_DIST points at seraphiel_cli/web_dist) and is intentionally
-# not chowned here.
-# /opt/seraphiel/gateway is runtime-writable: Python may create __pycache__ and
-# gateway state artifacts beneath the package after services drop privileges,
-# especially when the seraphiel UID is remapped at boot (#27221).
-# The .venv MUST remain seraphiel-writable so lazy_deps.py can install
-# remaining optional platform packages and future pin bumps at first use.
-# Without this, `uv pip install` fails with EACCES and adapters silently
-# fail to load.  See tools/lazy_deps.py.
+# Link seraphiel-brain itself (editable). Deps are already installed in the
+# cached layer above; `--no-deps` makes this a fast egg-link creation with no
+# resolution or downloads.
+RUN uv pip install --no-cache-dir --no-deps -e "."
+
+# Keep /opt/seraphiel immutable for the runtime seraphiel user. Hosted/container
+# instances must not be able to self-edit the installed source or venv; user
+# data, skills, plugins, config, logs, and dashboard uploads live under
+# /opt/data instead. Root can still repair the image during build/boot, but
+# supervised Seraphiel processes drop to the non-root seraphiel user.
 USER root
-RUN chmod -R a+rX /opt/seraphiel && \
-    chown -R seraphiel:seraphiel /opt/seraphiel/.venv /opt/seraphiel/ui-tui /opt/seraphiel/gateway /opt/seraphiel/node_modules
+RUN mkdir -p /opt/seraphiel/bin && \
+    cp /opt/seraphiel/docker/seraphiel-exec-shim.sh /opt/seraphiel/bin/seraphiel && \
+    chmod 0755 /opt/seraphiel/bin/seraphiel && \
+    printf 'docker\n' > /opt/seraphiel/.install_method && \
+    chown -R root:root /opt/seraphiel && \
+    chmod -R a+rX /opt/seraphiel && \
+    chmod -R a-w /opt/seraphiel
+# The ``.install_method`` stamp is baked next to the running code (the install
+# tree), NOT into $SERAPHIEL_HOME. $SERAPHIEL_HOME (/opt/data) is a shared data
+# volume that is commonly bind-mounted from the host and even shared with a
+# host-side Desktop/CLI install; stamping it at boot used to clobber that
+# host install's marker and wrongly block its ``seraphiel update``. A code-scoped
+# stamp is read first by detect_install_method() and is immune to the share.
 # Start as root so the s6-overlay stage2 hook can usermod/groupmod and chown
 # the data volume. Each supervised service then drops to the seraphiel user via
 # `s6-setuidgid seraphiel` in its run script. If SERAPHIEL_UID is unset, services
 # run as the default seraphiel user (UID 10000).
-
-# ---------- Link seraphiel-brain itself (editable) ----------
-# Deps are already installed in the cached layer above; `--no-deps` makes
-# this a fast (~1s) egg-link creation with no resolution or downloads.
-RUN uv pip install --no-cache-dir --no-deps -e "."
 
 # ---------- Bake build-time git revision ----------
 # .dockerignore excludes .git, so `git rev-parse HEAD` from inside the
@@ -235,8 +240,9 @@ RUN uv pip install --no-cache-dir --no-deps -e "."
 # every published image has it.
 ARG SERAPHIEL_GIT_SHA=
 RUN if [ -n "${SERAPHIEL_GIT_SHA}" ]; then \
+        chmod u+w /opt/seraphiel && \
         printf '%s\n' "${SERAPHIEL_GIT_SHA}" > /opt/seraphiel/.seraphiel_build_sha && \
-        chown seraphiel:seraphiel /opt/seraphiel/.seraphiel_build_sha; \
+        chmod a-w /opt/seraphiel /opt/seraphiel/.seraphiel_build_sha; \
     fi
 
 # ---------- s6-overlay service wiring ----------
@@ -282,6 +288,8 @@ ENV SERAPHIEL_WEB_DIST=/opt/seraphiel/seraphiel_cli/web_dist
 # check. (A separate launcher hardening is tracked independently.)
 ENV SERAPHIEL_TUI_DIR=/opt/seraphiel/ui-tui
 ENV SERAPHIEL_HOME=/opt/data
+ENV SERAPHIEL_WRITE_SAFE_ROOT=/opt/data
+ENV SERAPHIEL_DISABLE_LAZY_INSTALLS=1
 
 # `docker exec` privilege-drop shim. When operators run
 # `docker exec <c> seraphiel ...` they default to root, and any file the
@@ -294,7 +302,6 @@ ENV SERAPHIEL_HOME=/opt/data
 # Recursion is impossible because the shim exec's the venv binary by
 # absolute path (/opt/seraphiel/.venv/bin/seraphiel). See the shim source for
 # the opt-out env var (SERAPHIEL_DOCKER_EXEC_AS_ROOT=1).
-COPY --chmod=0755 docker/seraphiel-exec-shim.sh /opt/seraphiel/bin/seraphiel
 
 # Pre-s6 entrypoint.sh did `source .venv/bin/activate` which exported
 # the venv bin onto PATH; Architecture B's main-wrapper.sh does the

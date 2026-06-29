@@ -23,8 +23,9 @@ check_key() {
     local var="$1"
     local kc_account="${2:-seraphiel}"
     local kc_service="${3:-$1}"
-    if grep -q "^${var}=" "$HOME/.seraphiel/.env" 2>/dev/null && \
-       [ -n "$(grep "^${var}=" "$HOME/.seraphiel/.env" | cut -d= -f2-)" ]; then
+    local _seraphiel_env="${SERAPHIEL_HOME:-$HOME/.seraphiel}/.env"
+    if grep -q "^${var}=" "$_seraphiel_env" 2>/dev/null && \
+       [ -n "$(grep "^${var}=" "$_seraphiel_env" | cut -d= -f2-)" ]; then
         echo "  ✓ ${var} (env)"
         return 0
     fi
@@ -33,7 +34,7 @@ check_key() {
         echo "  ✓ ${var} (Keychain ${kc_account}/${kc_service})"
         return 0
     fi
-    echo "  ✗ ${var} not set in ~/.seraphiel/.env or Keychain (${kc_account}/${kc_service})"
+    echo "  ✗ ${var} not set in ${_seraphiel_env} or Keychain (${kc_account}/${kc_service})"
     return 1
 }
 

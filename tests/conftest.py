@@ -190,6 +190,7 @@ _SERAPHIEL_BEHAVIORAL_VARS = frozenset({
     "SERAPHIEL_INFERENCE_PROVIDER",
     "SERAPHIEL_TUI_PROVIDER",
     "SERAPHIEL_MANAGED",
+    "SERAPHIEL_MANAGED_DIR",
     "SERAPHIEL_DEV",
     "SERAPHIEL_CONTAINER",
     "SERAPHIEL_EPHEMERAL_SYSTEM_PROMPT",
@@ -534,6 +535,14 @@ def pytest_configure(config):  # noqa: D401 — pytest hook
         "behaviour — e.g. PTY tests that signal their own child).",
     )
 
+    # The pyproject addopts pin ``--timeout-method=signal`` relies on
+    # ``signal.SIGALRM``, which does not exist on Windows — pytest-timeout
+    # raises AttributeError at timer setup and the whole run aborts before any
+    # test executes. Fall back to the thread-based timer on Windows so the
+    # suite runs natively there (POSIX keeps the more reliable signal method).
+    if sys.platform == "win32" and getattr(config.option, "timeout_method", None) == "signal":
+        config.option.timeout_method = "thread"
+
 
 @pytest.fixture(autouse=True)
 def _live_system_guard(request, monkeypatch):
@@ -730,6 +739,41 @@ def _live_system_guard(request, monkeypatch):
                 "targeting seraphiel/python could hit the live gateway. "
                 "Mark with @pytest.mark.live_system_guard_bypass if "
                 "intentional."
+            )
+        # Block any subprocess that would run `seraphiel update` (or the
+        # equivalent `python -m seraphiel_cli.main update`).  These commands
+        # run `git fetch origin + git pull` against the REAL checkout,
+        # overwriting files like pyproject.toml mid-test-run and corrupting
+        # every subsequent subprocess that reads them.  The corruption is
+        # especially insidious because the spawned process uses setsid/
+        # start_new_session=True, making it invisible to pytest's process
+        # tree (PPid=1) and nearly impossible to trace without explicit
+        # inotify/SHA watchdogs.  Any test that legitimately needs to exercise
+        # the update-spawn path must mock subprocess.Popen explicitly.
+        cmd_str = _cmd_to_string(cmd)
+        low = cmd_str.lower()
+        if "update" in low and (
+            # seraphiel update / seraphiel update --gateway / setsid bash -c ... seraphiel update
+            ("seraphiel" in low and "update" in low.split())
+            or
+            # python -m seraphiel_cli.main update --gateway
+            ("seraphiel_cli" in low and "update" in low.split())
+            or
+            # venv/bin/seraphiel update  (absolute path variant used in tests)
+            (".venv/bin/seraphiel" in low and "update" in low)
+        ):
+            raise RuntimeError(
+                f"tests/conftest.py live-system guard: blocked "
+                f"subprocess.{name}({cmd!r}) — this command would run "
+                "`seraphiel update` against the real checkout, fetching "
+                "from origin and overwriting repo files (e.g. "
+                "pyproject.toml) mid-test-run. This corrupts every "
+                "subsequent subprocess in the same runner. "
+                "Mock subprocess.Popen (and subprocess.run if used) "
+                "in the test instead, or mark with "
+                "@pytest.mark.live_system_guard_bypass if genuinely "
+                "needed (e.g. an integration test testing the update "
+                "flow against a dedicated throwaway repo)."
             )
 
     def _wrap_subprocess(name, real):

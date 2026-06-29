@@ -1,15 +1,20 @@
-"""Tests for per-profile subprocess HOME isolation (#4426).
+"""Tests for subprocess HOME handling in profile mode.
 
-Verifies that subprocesses (terminal, execute_code, background processes)
-receive a per-profile HOME directory while the Python process's own HOME
-and Path.home() remain unchanged.
+Seraphiel state stays profile-scoped through SERAPHIEL_HOME. Host subprocesses should
+keep the user's real HOME by default so external CLIs find existing credentials.
+Containers still use the profile home for persistence, and users can explicitly
+opt into profile HOME isolation on the host.
 
-See: https://github.com/embreythecreator/seraphiel-brain/issues/4426
+See: https://github.com/embreythecreator/seraphiel-brain/issues/25114
+See: https://github.com/embreythecreator/seraphiel-brain/issues/36144
+See: https://github.com/embreythecreator/seraphiel-brain/issues/29015
 """
 
 import os
 import threading
 from pathlib import Path
+
+import seraphiel_constants
 
 
 
@@ -19,6 +24,16 @@ from pathlib import Path
 
 class TestGetSubprocessHome:
     """Unit tests for seraphiel_constants.get_subprocess_home()."""
+
+    def _host_mode(self, monkeypatch):
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: False)
+        monkeypatch.delenv("TERMINAL_HOME_MODE", raising=False)
+        monkeypatch.delenv("SERAPHIEL_REAL_HOME", raising=False)
+
+    def _container_mode(self, monkeypatch):
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: True)
+        monkeypatch.delenv("TERMINAL_HOME_MODE", raising=False)
+        monkeypatch.delenv("SERAPHIEL_REAL_HOME", raising=False)
 
     def test_returns_none_when_seraphiel_home_unset(self, monkeypatch):
         monkeypatch.delenv("SERAPHIEL_HOME", raising=False)
@@ -33,26 +48,70 @@ class TestGetSubprocessHome:
         from seraphiel_constants import get_subprocess_home
         assert get_subprocess_home() is None
 
-    def test_returns_path_when_home_dir_exists(self, tmp_path, monkeypatch):
-        seraphiel_home = tmp_path / ".seraphiel"
-        seraphiel_home.mkdir()
+    def test_host_auto_keeps_real_home_when_profile_home_exists(self, tmp_path, monkeypatch):
+        """Host installs should not hide real ~/.ssh, ~/.gitconfig, ~/.azure, etc."""
+        self._host_mode(monkeypatch)
+        real_home = tmp_path / "real-home"
+        seraphiel_home = real_home / ".seraphiel" / "profiles" / "coder"
         profile_home = seraphiel_home / "home"
-        profile_home.mkdir()
+        profile_home.mkdir(parents=True)
+        monkeypatch.setenv("HOME", str(real_home))
+        monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
+        from seraphiel_constants import get_subprocess_home
+        assert get_subprocess_home() is None
+
+    def test_container_auto_uses_profile_home_when_home_dir_exists(self, tmp_path, monkeypatch):
+        self._container_mode(monkeypatch)
+        seraphiel_home = tmp_path / ".seraphiel"
+        profile_home = seraphiel_home / "home"
+        profile_home.mkdir(parents=True)
         monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
         from seraphiel_constants import get_subprocess_home
         assert get_subprocess_home() == str(profile_home)
 
     def test_returns_profile_specific_path(self, tmp_path, monkeypatch):
-        """Named profiles get their own isolated HOME."""
+        """Explicit profile mode keeps the old per-profile HOME behavior."""
+        self._host_mode(monkeypatch)
         profile_dir = tmp_path / ".seraphiel" / "profiles" / "coder"
         profile_dir.mkdir(parents=True)
         profile_home = profile_dir / "home"
         profile_home.mkdir()
+        monkeypatch.setenv("TERMINAL_HOME_MODE", "profile")
         monkeypatch.setenv("SERAPHIEL_HOME", str(profile_dir))
         from seraphiel_constants import get_subprocess_home
         assert get_subprocess_home() == str(profile_home)
 
+    def test_real_mode_repairs_parent_home_already_pointing_at_profile(self, tmp_path, monkeypatch):
+        self._host_mode(monkeypatch)
+        profile_dir = tmp_path / ".seraphiel" / "profiles" / "coder"
+        profile_home = profile_dir / "home"
+        profile_home.mkdir(parents=True)
+        real_home = tmp_path / "real-home"
+        real_home.mkdir()
+        monkeypatch.setenv("TERMINAL_HOME_MODE", "real")
+        monkeypatch.setenv("SERAPHIEL_HOME", str(profile_dir))
+        monkeypatch.setenv("HOME", str(profile_home))
+        monkeypatch.setenv("SERAPHIEL_REAL_HOME", str(real_home))
+
+        from seraphiel_constants import get_subprocess_home, get_real_home
+
+        assert get_real_home() == str(real_home)
+        assert get_subprocess_home() == str(real_home)
+
+    def test_real_home_falls_back_to_os_account_when_home_is_profile(self, tmp_path, monkeypatch):
+        self._host_mode(monkeypatch)
+        profile_dir = tmp_path / ".seraphiel" / "profiles" / "coder"
+        profile_home = profile_dir / "home"
+        profile_home.mkdir(parents=True)
+        monkeypatch.setenv("SERAPHIEL_HOME", str(profile_dir))
+        monkeypatch.setenv("HOME", str(profile_home))
+
+        from seraphiel_constants import get_real_home
+
+        assert get_real_home() != str(profile_home)
+
     def test_two_profiles_get_different_homes(self, tmp_path, monkeypatch):
+        self._container_mode(monkeypatch)
         base = tmp_path / ".seraphiel" / "profiles"
         for name in ("alpha", "beta"):
             p = base / name
@@ -117,20 +176,42 @@ class TestGetSubprocessHome:
 # ---------------------------------------------------------------------------
 
 class TestMakeRunEnvHomeInjection:
-    """Verify _make_run_env() injects HOME into subprocess envs."""
+    """Verify _make_run_env() applies the subprocess HOME policy."""
 
-    def test_injects_home_when_profile_home_exists(self, tmp_path, monkeypatch):
+    def test_host_auto_preserves_real_home_when_profile_home_exists(self, tmp_path, monkeypatch):
         seraphiel_home = tmp_path / "seraphiel"
         seraphiel_home.mkdir()
         (seraphiel_home / "home").mkdir()
+        real_home = tmp_path / "real-home"
+        real_home.mkdir()
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: False)
         monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
-        monkeypatch.setenv("HOME", "/root")
+        monkeypatch.setenv("HOME", str(real_home))
+        monkeypatch.setenv("PATH", "/usr/bin:/bin")
+
+        from tools.environments.local import _make_run_env
+        result = _make_run_env({})
+
+        assert result["HOME"] == str(real_home)
+        assert result["SERAPHIEL_REAL_HOME"] == str(real_home)
+
+    def test_profile_mode_injects_profile_home_when_profile_home_exists(self, tmp_path, monkeypatch):
+        seraphiel_home = tmp_path / "seraphiel"
+        seraphiel_home.mkdir()
+        (seraphiel_home / "home").mkdir()
+        real_home = tmp_path / "real-home"
+        real_home.mkdir()
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: False)
+        monkeypatch.setenv("TERMINAL_HOME_MODE", "profile")
+        monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
+        monkeypatch.setenv("HOME", str(real_home))
         monkeypatch.setenv("PATH", "/usr/bin:/bin")
 
         from tools.environments.local import _make_run_env
         result = _make_run_env({})
 
         assert result["HOME"] == str(seraphiel_home / "home")
+        assert result["SERAPHIEL_REAL_HOME"] == str(real_home)
 
     def test_no_injection_when_home_dir_missing(self, tmp_path, monkeypatch):
         seraphiel_home = tmp_path / "seraphiel"
@@ -156,6 +237,7 @@ class TestMakeRunEnvHomeInjection:
         assert result["HOME"] == "/home/user"
 
     def test_context_override_bridges_to_subprocess_env(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: True)
         root = tmp_path / "root"
         profile = tmp_path / "profile"
         root.mkdir()
@@ -183,19 +265,40 @@ class TestMakeRunEnvHomeInjection:
 # ---------------------------------------------------------------------------
 
 class TestSanitizeSubprocessEnvHomeInjection:
-    """Verify _sanitize_subprocess_env() injects HOME for background procs."""
+    """Verify _sanitize_subprocess_env() applies the subprocess HOME policy."""
 
-    def test_injects_home_when_profile_home_exists(self, tmp_path, monkeypatch):
+    def test_host_auto_preserves_real_home_when_profile_home_exists(self, tmp_path, monkeypatch):
         seraphiel_home = tmp_path / "seraphiel"
         seraphiel_home.mkdir()
         (seraphiel_home / "home").mkdir()
+        real_home = tmp_path / "real-home"
+        real_home.mkdir()
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: False)
         monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
 
-        base_env = {"HOME": "/root", "PATH": "/usr/bin", "USER": "root"}
+        base_env = {"HOME": str(real_home), "PATH": "/usr/bin", "USER": "root"}
+        from tools.environments.local import _sanitize_subprocess_env
+        result = _sanitize_subprocess_env(base_env)
+
+        assert result["HOME"] == str(real_home)
+        assert result["SERAPHIEL_REAL_HOME"] == str(real_home)
+
+    def test_profile_mode_injects_profile_home_when_profile_home_exists(self, tmp_path, monkeypatch):
+        seraphiel_home = tmp_path / "seraphiel"
+        seraphiel_home.mkdir()
+        (seraphiel_home / "home").mkdir()
+        real_home = tmp_path / "real-home"
+        real_home.mkdir()
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: False)
+        monkeypatch.setenv("TERMINAL_HOME_MODE", "profile")
+        monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
+
+        base_env = {"HOME": str(real_home), "PATH": "/usr/bin", "USER": "root"}
         from tools.environments.local import _sanitize_subprocess_env
         result = _sanitize_subprocess_env(base_env)
 
         assert result["HOME"] == str(seraphiel_home / "home")
+        assert result["SERAPHIEL_REAL_HOME"] == str(real_home)
 
     def test_no_injection_when_home_dir_missing(self, tmp_path, monkeypatch):
         seraphiel_home = tmp_path / "seraphiel"
@@ -209,6 +312,7 @@ class TestSanitizeSubprocessEnvHomeInjection:
         assert result["HOME"] == "/root"
 
     def test_context_override_bridges_to_background_env(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(seraphiel_constants, "is_container", lambda: True)
         root = tmp_path / "root"
         profile = tmp_path / "profile"
         root.mkdir()
@@ -274,7 +378,7 @@ class TestPythonProcessUnchanged:
         from seraphiel_constants import get_subprocess_home
         sub_home = get_subprocess_home()
 
-        # Subprocess home is set but Python HOME stays the same
-        assert sub_home is not None
+        # Resolving subprocess HOME must not mutate the Python process env.
+        assert sub_home in (None, str(seraphiel_home / "home"), original_home)
         assert os.environ.get("HOME") == original_home
         assert str(Path.home()) == original_path_home

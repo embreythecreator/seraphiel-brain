@@ -378,12 +378,14 @@ class TestCacheDirectoryMounts:
         seraphiel_home.mkdir()
         (seraphiel_home / "cache" / "documents").mkdir(parents=True)
         (seraphiel_home / "cache" / "audio").mkdir(parents=True)
+        (seraphiel_home / "cache" / "videos").mkdir(parents=True)
         monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
 
         mounts = get_cache_directory_mounts()
         paths = {m["container_path"] for m in mounts}
         assert "/root/.seraphiel/cache/documents" in paths
         assert "/root/.seraphiel/cache/audio" in paths
+        assert "/root/.seraphiel/cache/videos" in paths
 
     def test_skips_nonexistent_dirs(self, tmp_path, monkeypatch):
         """Dirs that don't exist on disk are not returned."""

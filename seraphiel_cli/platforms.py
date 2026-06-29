@@ -24,6 +24,7 @@ PLATFORMS: OrderedDict[str, PlatformInfo] = OrderedDict([
     ("discord",        PlatformInfo(label="💬 Discord",         default_toolset="seraphiel-discord")),
     ("slack",          PlatformInfo(label="💼 Slack",           default_toolset="seraphiel-slack")),
     ("whatsapp",       PlatformInfo(label="📱 WhatsApp",        default_toolset="seraphiel-whatsapp")),
+    ("whatsapp_cloud", PlatformInfo(label="📱 WhatsApp Business (Cloud)", default_toolset="seraphiel-whatsapp")),
     ("signal",         PlatformInfo(label="📡 Signal",          default_toolset="seraphiel-signal")),
     ("bluebubbles",    PlatformInfo(label="💙 BlueBubbles",     default_toolset="seraphiel-bluebubbles")),
     ("email",          PlatformInfo(label="📧 Email",           default_toolset="seraphiel-email")),
