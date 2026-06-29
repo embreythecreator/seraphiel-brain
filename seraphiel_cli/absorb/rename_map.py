@@ -65,8 +65,8 @@ NOUS_RULES: list[tuple[str, str]] = [
 
 # --- Attribution: enforce operator self-credit (applied after the families) ---
 ATTRIBUTION_RULES: list[tuple[str, str]] = [
-    ("created by Seraphiel", "created by Embrey The Creator"),
-    ("created by Hermes", "created by Embrey The Creator"),
+    ("created by Seraphiel", "created by Embrey The Creator / The Voice"),
+    ("created by Hermes", "created by Embrey The Creator / The Voice"),
 ]
 
 # --- Path rules: case-aware HERMES path tokens, total swap ---
