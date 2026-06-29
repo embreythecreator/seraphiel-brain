@@ -11088,6 +11088,7 @@ def cmd_logs(args):
 # to parse.
 _BUILTIN_SUBCOMMANDS = frozenset(
     {
+        "absorb",
         "acp", "auth", "backup", "bundles", "checkpoints", "claw", "completion",
         "computer-use",
         "config", "cron", "curator", "dashboard", "debug", "doctor",
@@ -11565,6 +11566,57 @@ def cmd_claw(args):
     claw_command(args)
 
 
+def cmd_absorb(args) -> int:
+    """`seraphiel absorb` — fold a new upstream Hermes release into the fork.
+
+    Maintainer / git-source command. Dry by default: builds the `absorb/<tag>`
+    branch + parity report and stops; committing is a separate gated step and
+    `main` is never touched. Returns a status code (see callers/tests); the
+    operator-facing result is the printed message.
+    """
+    import os
+    from seraphiel_cli.absorb import driver
+    repo = os.getcwd()
+    ok, msg = driver.install_ok(repo)
+    if not ok and not args.check:
+        print(f"  ✗ {msg}")
+        return 2
+    if args.check:
+        from seraphiel_cli.absorb import detect
+        tag = detect.latest_absorbable(repo) if ok else None
+        print(f"  ✶ upstream {tag} available to absorb" if tag
+              else "  ✓ up to date with upstream")
+        return 0
+    if args.gate:
+        passed, detail = driver.gate(repo, args.base or driver.current_base(repo))
+        print("  ✓ gate passed (0 stray tokens)" if passed
+              else f"  ✗ gate failed:\n{detail}")
+        return 0 if passed else 1
+    try:
+        if args.abort:
+            driver.abort(repo, args.tag)
+            print(f"  ✓ aborted absorb/{args.tag}")
+            return 0
+        if args.commit:
+            oid = driver.commit(repo, args.tag)
+            print(f"  ✓ committed {oid} on absorb/{args.tag}")
+            return 0
+        if not args.tag:
+            print("  usage: seraphiel absorb <tag> | --check | --gate | --commit | --abort")
+            return 2
+        res = driver.absorb(repo, args.tag, args.base)
+        p = res["parity"]
+        print(f"  branch {res['branch']} · re-added {p['re_added']} · divergence {p['divergence']}")
+        if res["ready"]:
+            print(f"  ✓ clean — review, then `seraphiel absorb {args.tag} --commit`")
+        else:
+            print(f"  conflicts/markers in {len(p['conflicts'])} files — resolve then --commit")
+        return 0
+    except driver.AbsorbRefused as e:
+        print(f"  ✗ {e}")
+        return 2
+
+
 def main():
     """Main entry point for seraphiel CLI."""
     # Cosmetic: make the process show up as 'seraphiel' instead of 'python3.11'
@@ -11774,6 +11826,30 @@ def main():
         ),
     )
     whatsapp_cloud_parser.set_defaults(func=cmd_whatsapp_cloud)
+
+    # =========================================================================
+    # absorb command — fold a new upstream Hermes release into the fork
+    #   (maintainer / git-source installs only; dry by default; never main)
+    # =========================================================================
+    absorb_parser = subparsers.add_parser(
+        "absorb",
+        help="Absorb a new upstream Hermes release into the fork (maintainer/git installs)",
+        description=(
+            "Fold a new upstream Hermes release into Seraphiel's own core via the "
+            "rename-aware 3-way merge harness. Produces an `absorb/<tag>` branch and a "
+            "parity report, then stops — committing is a separate, explicit step and "
+            "`main` is never touched. Requires a git/source checkout with the "
+            "`upstream` remote (pip/docker installs get core updates via `seraphiel "
+            "update`)."
+        ),
+    )
+    absorb_parser.add_argument("tag", nargs="?", help="upstream tag to absorb, e.g. v2026.7.0")
+    absorb_parser.add_argument("--base", default=None, help="override the merge-base tag")
+    absorb_parser.add_argument("--check", action="store_true", help="only report if a newer upstream tag exists")
+    absorb_parser.add_argument("--gate", action="store_true", help="only run the rebrand fidelity gate")
+    absorb_parser.add_argument("--commit", action="store_true", help="finalize the absorb (requires parity READY)")
+    absorb_parser.add_argument("--abort", action="store_true", help="delete the absorb branch and restore")
+    absorb_parser.set_defaults(func=cmd_absorb)
 
     # =========================================================================
     # slack command  (parser built in seraphiel_cli/subcommands/slack.py)

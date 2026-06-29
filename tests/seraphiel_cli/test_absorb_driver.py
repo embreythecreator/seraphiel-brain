@@ -30,3 +30,12 @@ def test_fidelity_gate_passes_on_current_tree():
     """T(base) must still reproduce HEAD modulo genuine divergence — 0 stray tokens."""
     ok, detail = driver.gate(REPO, driver.current_base(REPO))
     assert ok, f"rebrand map drifted; stray tokens:\n{detail}"
+
+
+def test_cli_absorb_gate_runs(capsys):
+    from seraphiel_cli import main as m
+    ns = type("A", (), {"command": "absorb", "tag": None, "base": None,
+                        "check": False, "gate": True, "commit": False, "abort": False})()
+    rc = m.cmd_absorb(ns)
+    assert rc in (0, 1)
+    assert "gate" in capsys.readouterr().out.lower()
