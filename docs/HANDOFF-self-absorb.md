@@ -1,40 +1,54 @@
 # Handoff — Upstream absorb + self-absorb feature
 
-**Session date:** 2026-06-29 · **Repo:** `~/Oblivion/seraphiel-brain` · **Branch:** `absorb/v2026.6.19`
+**Session dates:** 2026-06-29 (absorb + design) · 2026-06-30 (feature built + verified) ·
+**Repo:** `~/Oblivion/seraphiel-brain` · **Branch:** `absorb/v2026.6.19`
 
 Pick this up cold. This doc has everything to know what was done, the exact git state, what's
 verified, and the open decisions.
+
+> **Status (2026-06-30):** BOTH parts are now done and verified on the branch. The v2026.6.19 absorb
+> AND the self-absorb feature (all 6 plan tasks) are built and passing. Nothing is pushed; `main` is
+> still the old pre-absorb fork. The only open work is the merge/push and an optional clean-CI run.
 
 ---
 
 ## TL;DR
 
-Two things happened this session:
+Two things happened across these sessions, both now DONE on the branch:
 
 1. **Absorbed upstream Hermes `v2026.6.5 → v2026.6.19` into the fork at full parity** using a new
    rename-aware harness. Done, committed on branch `absorb/v2026.6.19`. **Nothing pushed. `main`
    untouched.**
-2. **Designed + planned a "self-absorb" feature** (`seraphiel absorb` command + detection + an
-   agentic skill) so Seraphiel can do future absorbs itself. Spec + plan written; **not built yet.**
+2. **Built the "self-absorb" feature** (`seraphiel absorb` command + detection + an agentic skill) so
+   Seraphiel can do future absorbs itself. All 6 plan tasks landed as commits and are verified
+   passing (12-test absorb suite green, gate clean). Spec + plan still in `docs/`.
 
-Resume by deciding: (a) merge the absorb to `main` / push? (b) build the self-absorb feature from the
-plan? (c) run the full suite in clean CI for a true-green number?
+Resume by deciding: (a) merge the absorb to `main` / push? (b) run the full suite in clean CI for a
+true-green number? (The feature-build decision is now resolved — it's built.)
 
 ---
 
 ## Git state (exact)
 
-Branch `absorb/v2026.6.19`, 4 commits ahead of `main`, **not pushed** (no remote tracking):
+Branch `absorb/v2026.6.19`, **12 commits** ahead of `main`, **not pushed** (no remote tracking):
 
 ```
-cbdb6074  docs(plan): Seraphiel self-absorb implementation plan
-6c8d461e  docs(spec): Seraphiel self-absorb design (seraphiel absorb + skill)
-d9c5e7af  chore(absorb): untrack harness run artifacts (.last-*)
-7246d039  absorb: hermes-agent v2026.6.5 -> v2026.6.19 (full parity, rename-aware harness)
+081749bb3  fix(identity): credit Embrey The Creator / The Voice
+791fcbe3c  feat(absorb): repo-local absorb-upstream agentic skill        ← self-absorb task 6
+8b038587a  feat(absorb): surface absorb-available offer on the banner    ← self-absorb task 5
+0474ba4c0  feat(absorb): upstream-tag detection with cache               ← self-absorb task 4
+c1c9efbbd  feat(absorb): seraphiel absorb subcommand + dispatch          ← self-absorb task 3
+f2dc03898  feat(absorb): python driver with guardrails + fidelity gate   ← self-absorb task 2
+dded3bff0  refactor(absorb): package harness into seraphiel_cli/absorb   ← self-absorb task 1
+bb32a7bf8  docs: session handoff for absorb + self-absorb feature
+cbdb60744  docs(plan): Seraphiel self-absorb implementation plan
+6c8d461e9  docs(spec): Seraphiel self-absorb design (seraphiel absorb + skill)
+d9c5e7afc  chore(absorb): untrack harness run artifacts (.last-*)
+7246d0398  absorb: hermes-agent v2026.6.5 -> v2026.6.19 (full parity, rename-aware harness)
 ----------  (683ba08 = prior fork HEAD = current `main`)
 ```
 
-`git diff main HEAD` = **1,215 files, +143K / −28K**. `main` is the pre-absorb fork (still `0.16.0`).
+`git diff main HEAD` = **1,223 files, +144K / −28K**. `main` is the pre-absorb fork (still `0.16.0`).
 
 To get back here in a fresh session: `cd ~/Oblivion/seraphiel-brain && git checkout absorb/v2026.6.19`.
 
@@ -114,12 +128,26 @@ Harmless; leave them. Full suite **collects cleanly: 33,080 tests, 0 collection 
 
 ---
 
-## Part 2 — Self-absorb feature (DESIGNED + PLANNED, not built)
+## Part 2 — Self-absorb feature (BUILT + VERIFIED, on branch)
 
-The user wants Seraphiel able to update its own core base from upstream. Brainstormed → spec → plan.
+The user wanted Seraphiel able to update its own core base from upstream. Brainstormed → spec → plan
+→ **built**. All 6 plan tasks landed (commits `dded3bff0`..`791fcbe3c`) and are verified passing.
 
 - **Spec:** `docs/specs/2026-06-29-seraphiel-self-absorb-design.md`
-- **Plan:** `docs/plans/2026-06-29-seraphiel-self-absorb.md` (6 TDD tasks)
+- **Plan:** `docs/plans/2026-06-29-seraphiel-self-absorb.md` (6 TDD tasks — all complete)
+
+**What shipped + where it lives now:**
+- Harness moved `scripts/absorb/*.sh` → importable **`seraphiel_cli/absorb/`** (`rename_map.py`,
+  `rebrand_tree.py`, `parity_report.py`, `driver.py`, `detect.py`; 715 lines). `scripts/absorb/README.md`
+  is now just a pointer.
+- **`seraphiel absorb`** subcommand with `--check` / `--gate` / `--commit` / `--abort` (+ `[tag]`,
+  `--base`). Run the gate via `seraphiel absorb --gate` (NOT the old `scripts/absorb/absorb.sh --gate`).
+- Upstream-tag **detection** (cached) surfaces an absorb-available offer on the banner.
+- Repo-local agentic **skill** `skills/software-development/absorb-upstream/SKILL.md`.
+- Tests: `tests/seraphiel_cli/test_absorb_{driver,detect,parity}.py` — **12 passing** (clean HOME).
+
+**Verified 2026-06-30:** gate → 0 stray tokens · 12 absorb tests pass · `seraphiel --version` →
+`v0.17.0 (2026.6.19) … +12 carried commits` · `seraphiel absorb --check` → up to date with upstream.
 
 **Locked decisions:**
 - **Layered**: a deterministic `seraphiel absorb` command does the mechanics + safety rails; a skill
@@ -164,27 +192,27 @@ tests-before-commit; **never auto-push**; refuse pre-release/RC; one-step `--abo
 cd ~/Oblivion/seraphiel-brain
 git checkout absorb/v2026.6.19
 
-# verify the rebrand harness still reproduces HEAD (expect "no stray tokens")
-bash scripts/absorb/absorb.sh --gate
+# verify the rebrand harness still reproduces HEAD (expect "gate passed, 0 stray tokens")
+.venv/bin/python -m seraphiel_cli.main absorb --gate
 
-# re-read the plan, then build it
-sed -n '1,60p' docs/plans/2026-06-29-seraphiel-self-absorb.md
-
-# a clean-env sample test run (the RIGHT way — avoids the 337 false failures)
-HOME=$(mktemp -d) .venv/bin/python -m pytest tests/seraphiel_cli/test_banner.py -o addopts=""
+# the absorb feature's own test suite (clean HOME avoids host env-leak false failures)
+HOME=$(mktemp -d) .venv/bin/python -m pytest \
+  tests/seraphiel_cli/test_absorb_driver.py \
+  tests/seraphiel_cli/test_absorb_detect.py \
+  tests/seraphiel_cli/test_absorb_parity.py
 ```
 
-The next upstream absorb (once tooling/this branch lands) is one command:
-`scripts/absorb/absorb.sh v2026.7.0 --base v2026.6.19` (or `seraphiel absorb v2026.7.0` after the
-feature is built).
+The next upstream absorb is now one command: **`seraphiel absorb v2026.7.0`** (add `--base v2026.6.19`
+to override the merge base). It produces an `absorb/<tag>` branch + parity report and stops;
+`seraphiel absorb --commit` finalizes once parity is READY, `--abort` tears the branch down.
 
 ---
 
 ## Open decisions for the operator
 
 1. **Merge `absorb/v2026.6.19` → `main`?** And push? (Nothing is pushed; `main` is the old fork.)
-   - Note: the two doc commits (spec, plan) are stacked on this branch too; could move to `main` or a
-     `feature/self-absorb` branch instead.
-2. **Build the self-absorb feature** from `docs/plans/2026-06-29-seraphiel-self-absorb.md`?
-   (subagent-driven vs inline — subagents hit a session limit on 2026-06-29, may need the reset.)
-3. **Run the full suite in clean CI** for a true-green pass number before merging?
+   - The whole stack — absorb + self-absorb feature + docs — is on this one branch; merging brings it
+     all to `main` together. Alternatively split the feature onto `feature/self-absorb`.
+2. **Run the full suite in clean CI** for a true-green pass number before merging?
+
+~~Build the self-absorb feature~~ — **DONE** (2026-06-30, commits `dded3bff0`..`791fcbe3c`, verified).
