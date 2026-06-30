@@ -3,8 +3,9 @@
 This is a **white fork** of Hermes Agent (NousResearch/hermes-agent), imported as a
 squashed snapshot — there is **no shared git history with upstream**, so `git merge`
 does not work directly. Upstream is absorbed with the **rename-aware harness** in
-`scripts/absorb/`, which rebrands an upstream tag into our namespace and 3-way merges
-it onto our tree.
+`seraphiel_cli/absorb/`, driven by the **`seraphiel absorb`** command — it rebrands an
+upstream tag into our namespace and 3-way merges it onto our tree. Full developer
+guide: [`docs/absorb-harness.md`](docs/absorb-harness.md).
 
 | | value |
 |---|---|
@@ -19,32 +20,40 @@ invisible to public clones of this repo.
 ## Make our own update
 Commit to `main`, bump the patch in `pyproject.toml` (`0.17.0` → `0.17.1`). Done.
 
-## Absorb a Hermes update (rename-aware harness)
+## Absorb a Hermes update (`seraphiel absorb`)
 The transform (Hermes→Seraphiel, Nous Research→Seraphiel/Embrey, plus carve-outs) is
-codified in `scripts/absorb/rename_map.py` — no more hand-porting.
+codified in `seraphiel_cli/absorb/rename_map.py` — no more hand-porting.
 
 ```sh
 # 1. prove the transform still reproduces HEAD (pure-rename fidelity check)
-scripts/absorb/absorb.sh --gate                 # uses --base below; expect "no stray tokens"
+seraphiel absorb --gate                 # expect: ✓ gate passed (0 stray tokens)
 
-# 2. build the full-parity 3-way merge onto a fresh absorb/<tag> branch
-scripts/absorb/absorb.sh v2026.7.0 --base v2026.6.19
+# 2. anything new upstream? (cached check against the recorded base below)
+seraphiel absorb --check
 
-# 3. if it reports conflicts, materialise + resolve them:
+# 3. dry build the full-parity 3-way merge onto a fresh absorb/<tag> branch
+#    (never touches main, never commits on its own; --base defaults to the
+#     "Upstream tag" recorded in the table above)
+seraphiel absorb v2026.7.0
+
+# 4. if it reports conflicts, resolve them on the branch — edit only files with
+#    ^<<<<<<< markers, and ONLY where OUR genuine divergence (glyph ✶, Brain
+#    Settings overlay, versioned model name, attribution) overlaps an upstream
+#    change; re-apply our change wherever upstream relocated the code.
 git checkout absorb/v2026.7.0
-git read-tree --reset -u <merged-tree>          # printed by the driver
-#   ...edit files carrying ^<<<<<<< markers (only where OUR genuine changes —
-#      glyph ✶, Brain Settings overlay, versioned model name — overlap upstream),
-#      re-applying our change in any code upstream relocated...
-git add -A && git commit-tree $(git write-tree) -p HEAD -m "absorb: ... v2026.6.19 -> v2026.7.0"
 
-# 4. parity_report.py must end STATUS: READY (no markers, no stray tokens)
-# 5. bump pyproject + update this table to the new tag/commit, update CHANGELOG.md
+# 5. finalize — refuses unless parity is READY (no markers, no stray tokens)
+seraphiel absorb v2026.7.0 --commit
+#    one-step rollback at any point: seraphiel absorb v2026.7.0 --abort
+
+# 6. bump pyproject, update this table to the new tag/commit, update CHANGELOG.md,
+#    then merge to main + push when ready.
 ```
 
-**Base ref bookkeeping:** `--base` is the *previously absorbed* upstream tag (the merge
-base for the 3-way). It is `v2026.6.19` as of this absorb; update it (and the default in
-`absorb.sh`) every time you absorb. The original fork base was `f2a5cd1` (squashed import
+**Base ref bookkeeping:** the merge base for the 3-way is the *previously absorbed*
+upstream tag, read automatically from the **"Upstream tag" row of the table above**
+(`v2026.6.19` as of this absorb) — so just keep that row current and `--base` is rarely
+needed (override only to re-base). The original fork base was `f2a5cd1` (squashed import
 of `v2026.6.5`); the v2026.6.5→v2026.6.19 absorb un-trimmed the import to full parity, so
 future absorbs diff cleanly against the full upstream tree.
 
@@ -54,8 +63,10 @@ future absorbs diff cleanly against the full upstream tree.
   "Hermes Achievements" line; the "Nous Portal" inference *provider* is never rebranded),
   plus the `created by … → Embrey The Creator` attribution rule and the path swap.
 - `rebrand_tree.py` — applies T to any git ref via plumbing, emitting a rebranded tree.
-- `absorb.sh` — builds BASE=T(base,no-attr), THEIRS=T(tag), OURS=HEAD and 3-way merges so
-  conflicts collapse to genuine divergence; `--gate` runs the fidelity check.
+- `driver.py` — builds BASE=T(base,no-attr), THEIRS=T(tag), OURS=HEAD and 3-way merges so
+  conflicts collapse to genuine divergence; enforces the guardrails (git/source-install
+  only, branch isolation, gate-before-merge, READY-before-commit, never pushes). `seraphiel
+  absorb --gate` runs the fidelity check; `detect.py` powers `--check` + the banner offer.
 - `parity_report.py` — classifies the merged tree (re-added / divergence / conflicts /
   stray tokens) and gates the commit.
 - **Genuine divergence** deliberately NOT in T (re-applied by hand during conflict
