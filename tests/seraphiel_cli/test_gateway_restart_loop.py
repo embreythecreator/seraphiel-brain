@@ -30,7 +30,7 @@ class TestGatewayLifecyclePattern:
         "seraphiel gateway stop",
         "seraphiel gateway start",
         "seraphiel  gateway  restart",         # double spaces
-        "Hermez Gateway Restart".lower().replace("z", "s"),  # case handled
+        "Seraphiel Gateway Restart".lower(),   # mixed case handled
         "SERAPHIEL GATEWAY RESTART",           # uppercase
     ])
     def test_seraphiel_gateway_commands(self, text):
