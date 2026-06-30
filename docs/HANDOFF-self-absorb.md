@@ -6,25 +6,26 @@
 Pick this up cold. This doc has everything to know what was done, the exact git state, what's
 verified, and the open decisions.
 
-> **Status (2026-06-30):** BOTH parts are now done and verified on the branch. The v2026.6.19 absorb
-> AND the self-absorb feature (all 6 plan tasks) are built and passing. Nothing is pushed; `main` is
-> still the old pre-absorb fork. The only open work is the merge/push and an optional clean-CI run.
+> **Status (2026-06-30): SHIPPED.** The v2026.6.19 absorb AND the self-absorb feature (all 6 plan
+> tasks) are built, verified, **merged to `main` (fast-forward) and pushed to `origin`** — `main` is
+> now at `7e4ad83fa`, in sync with `origin/main`. Clean-CI full suite: 26,994 passed / 39 failed,
+> with **0 failures attributable to the absorb** (each proven to fail identically on the old main);
+> the 6 fixable pre-existing stale tests were fixed in `7e4ad83fa`, the rest are host/platform-only
+> (green on Linux CI). No open decisions remain.
 
 ---
 
 ## TL;DR
 
-Two things happened across these sessions, both now DONE on the branch:
+Two things happened across these sessions, both now DONE and **merged to `main` + pushed to `origin`**:
 
 1. **Absorbed upstream Hermes `v2026.6.5 → v2026.6.19` into the fork at full parity** using a new
-   rename-aware harness. Done, committed on branch `absorb/v2026.6.19`. **Nothing pushed. `main`
-   untouched.**
+   rename-aware harness. Done, and now on `main` (`7e4ad83fa`).
 2. **Built the "self-absorb" feature** (`seraphiel absorb` command + detection + an agentic skill) so
    Seraphiel can do future absorbs itself. All 6 plan tasks landed as commits and are verified
-   passing (12-test absorb suite green, gate clean). Spec + plan still in `docs/`.
+   passing (12-test absorb suite green, gate clean). Spec + plan in `docs/`.
 
-Resume by deciding: (a) merge the absorb to `main` / push? (b) run the full suite in clean CI for a
-true-green number? (The feature-build decision is now resolved — it's built.)
+Nothing left to decide — both shipped to `main` and pushed on 2026-06-30. See the Status banner above.
 
 ---
 
@@ -45,10 +46,14 @@ cbdb60744  docs(plan): Seraphiel self-absorb implementation plan
 6c8d461e9  docs(spec): Seraphiel self-absorb design (seraphiel absorb + skill)
 d9c5e7afc  chore(absorb): untrack harness run artifacts (.last-*)
 7246d0398  absorb: hermes-agent v2026.6.5 -> v2026.6.19 (full parity, rename-aware harness)
-----------  (683ba08 = prior fork HEAD = current `main`)
+----------  (683ba08 = prior fork HEAD = `main` BEFORE the merge)
 ```
 
-`git diff main HEAD` = **1,223 files, +144K / −28K**. `main` is the pre-absorb fork (still `0.16.0`).
+> Since shipped: `main` was fast-forwarded `683ba08e3 → 7e4ad83fa` and pushed to `origin`. The branch
+> tip below also gained `dd377e5d0` (handoff refresh) and `7e4ad83fa` (pre-existing stale-test fixes).
+
+At absorb time, `git diff main HEAD` = **1,223 files, +144K / −28K** (vs the old `0.16.0` fork). `main`
+is now at `7e4ad83fa` = `0.17.0`.
 
 To get back here in a fresh session: `cd ~/Oblivion/seraphiel-brain && git checkout absorb/v2026.6.19`.
 
@@ -208,11 +213,15 @@ to override the merge base). It produces an `absorb/<tag>` branch + parity repor
 
 ---
 
-## Open decisions for the operator
+## Open decisions for the operator — ALL RESOLVED (2026-06-30)
 
-1. **Merge `absorb/v2026.6.19` → `main`?** And push? (Nothing is pushed; `main` is the old fork.)
-   - The whole stack — absorb + self-absorb feature + docs — is on this one branch; merging brings it
-     all to `main` together. Alternatively split the feature onto `feature/self-absorb`.
-2. **Run the full suite in clean CI** for a true-green pass number before merging?
+1. ~~**Merge `absorb/v2026.6.19` → `main`?** And push?~~ — **DONE.** Fast-forwarded `main`
+   (`683ba08e3 → 7e4ad83fa`) and pushed to `origin` (embreythecreator/seraphiel-brain). The whole
+   stack — absorb + self-absorb feature + docs + pre-existing test fixes — landed on `main` together.
+2. ~~**Run the full suite in clean CI** for a true-green pass number?~~ — **DONE.** Ran CI's own
+   per-file runner (`scripts/run_tests_parallel.py`): 26,994 passed / 39 failed; proved 0 absorb-caused
+   (every suspect fails identically on the old main); fixed the 6 pre-existing stale tests; the rest
+   are host/platform-only (macOS paths, systemd, missing node/npm/lxml, real creds, network, timing).
+3. ~~**Build the self-absorb feature**~~ — **DONE** (commits `dded3bff0`..`791fcbe3c`, verified).
 
-~~Build the self-absorb feature~~ — **DONE** (2026-06-30, commits `dded3bff0`..`791fcbe3c`, verified).
+Nothing left open. Next upstream bump is one command: `seraphiel absorb v2026.7.0`.
