@@ -300,35 +300,26 @@ upstream relocated the WhatsApp reply prefix into a new `WhatsAppBehaviorMixin`
 ## 11. Running an absorb — worked walkthrough
 
 ```sh
-cd ~/Oblivion/seraphiel-brain            # must be the git/source checkout
-
-# 0. (sanity) prove the transform still reproduces HEAD
-seraphiel absorb --gate                  # expect: ✓ gate passed (0 stray tokens)
-
-# 1. is there anything to absorb?
-seraphiel absorb --check                 # ✶ upstream vYYYY.M.P available  | ✓ up to date
-
-# 2. dry build onto a fresh branch (never touches main)
-seraphiel absorb v2026.7.0               # → branch absorb/v2026.7.0 + parity summary
-
-# 3. resolve conflicts on the branch (preserve genuine divergence — §4)
-git checkout absorb/v2026.7.0
-#    ...edit conflicted files; re-run the parity check via the report...
-
-# 4. run the touched-core tests in isolation (clean HOME avoids host env leaks)
-HOME=$(mktemp -d) .venv/bin/python -m pytest \
-  tests/seraphiel_cli/test_absorb_driver.py tests/seraphiel_cli/test_absorb_parity.py \
-  tests/seraphiel_cli/test_absorb_detect.py
-
-# 5. finalize — refuses unless parity is READY
-seraphiel absorb v2026.7.0 --commit
-
-# 6. bookkeeping (by hand): bump pyproject version, update UPSTREAM_BASE.md table,
-#    add a CHANGELOG entry. Then merge to main + push when ready.
-
-# rollback at any point:
-seraphiel absorb v2026.7.0 --abort
+seraphiel absorb --status                # resume state, if any
+seraphiel absorb v2026.7.0               # branch + parity + AUTO verify battery
+seraphiel absorb --continue              # materialize conflicts into the working tree
+# ...resolve conflict files in place...
+seraphiel absorb --verify                # snapshot + re-run parity/divergence/battery
+seraphiel absorb --commit                # human step: guards + bookkeeping + finalize
+seraphiel absorb --abort                 # rollback at any point
 ```
+
+**Divergence manifest.** `seraphiel_cli/absorb/divergence.py` pins our genuine
+divergence (the `✶` glyph, the Brain Settings overlay, the versioned model name,
+the "Embrey The Creator / The Voice" attribution) as machine-checked invariants.
+The parity report enforces it, so a clean merge that silently reverts a deliberate
+change flips to NEEDS RESOLUTION. Never weaken the manifest to make a merge pass —
+update it only when the operator deliberately moves or retires a divergence.
+
+**Verify battery.** `seraphiel_cli/absorb/verify.py` materializes the merged tree
+in a throwaway worktree, byte-compiles the changed .py files, and runs the targeted
+hermetic test set. It runs automatically after the merge and on `--verify`;
+`--commit` refuses while it is red unless a human passes `--skip-verify`.
 
 > **After committing/merging on a machine that runs a live gateway from this repo:
 > restart the gateway** (`launchctl kickstart -k gui/$(id -u)/ai.seraphiel.gateway` on

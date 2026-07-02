@@ -11628,7 +11628,7 @@ def cmd_absorb(args) -> int:
             return 0
         if not args.tag:
             print("  usage: seraphiel absorb <tag> | --check | --gate | --status | "
-                  "--continue | --verify | --commit | --abort")
+                  "--continue | --verify | --commit [--skip-verify] | --abort")
             return 2
         res = driver.absorb(repo, args.tag, args.base)
         p = res["parity"]

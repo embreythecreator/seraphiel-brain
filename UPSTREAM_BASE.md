@@ -24,31 +24,11 @@ Commit to `main`, bump the patch in `pyproject.toml` (`0.17.0` → `0.17.1`). Do
 The transform (Hermes→Seraphiel, Nous Research→Seraphiel/Embrey, plus carve-outs) is
 codified in `seraphiel_cli/absorb/rename_map.py` — no more hand-porting.
 
-```sh
-# 1. prove the transform still reproduces HEAD (pure-rename fidelity check)
-seraphiel absorb --gate                 # expect: ✓ gate passed (0 stray tokens)
-
-# 2. anything new upstream? (cached check against the recorded base below)
-seraphiel absorb --check
-
-# 3. dry build the full-parity 3-way merge onto a fresh absorb/<tag> branch
-#    (never touches main, never commits on its own; --base defaults to the
-#     "Upstream tag" recorded in the table above)
-seraphiel absorb v2026.7.0
-
-# 4. if it reports conflicts, resolve them on the branch — edit only files with
-#    ^<<<<<<< markers, and ONLY where OUR genuine divergence (glyph ✶, Brain
-#    Settings overlay, versioned model name, attribution) overlaps an upstream
-#    change; re-apply our change wherever upstream relocated the code.
-git checkout absorb/v2026.7.0
-
-# 5. finalize — refuses unless parity is READY (no markers, no stray tokens)
-seraphiel absorb v2026.7.0 --commit
-#    one-step rollback at any point: seraphiel absorb v2026.7.0 --abort
-
-# 6. bump pyproject, update this table to the new tag/commit, update CHANGELOG.md,
-#    then merge to main + push when ready.
-```
+Conflicts are resolved in place: `seraphiel absorb --continue` materializes the
+merge into the working tree, and `seraphiel absorb --verify` snapshots your
+resolutions and re-runs parity + the verify battery. Bookkeeping is automatic:
+`seraphiel absorb --commit` bumps the minor version in `pyproject.toml`, rewrites
+this table, and prepends the `CHANGELOG.md` entry — no hand edits.
 
 **Base ref bookkeeping:** the merge base for the 3-way is the *previously absorbed*
 upstream tag, read automatically from the **"Upstream tag" row of the table above**
