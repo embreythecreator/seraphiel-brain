@@ -365,3 +365,44 @@ def test_cli_continue_reports_refusal(capsys, tmp_path, monkeypatch):
     rc = m.cmd_absorb(_ns(cont=True))
     assert rc == 2
     assert "no absorb in flight" in capsys.readouterr().out
+
+
+def test_commit_refuses_unverified_edits_on_branch(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
+    (tmp_path / "r" / "pyproject.toml").write_text("tampered\n")
+    _stub_parity(monkeypatch)
+    with pytest.raises(driver.AbsorbRefused, match="verified snapshot"):
+        driver.commit(repo)
+
+
+def test_cli_commit_passes_skip_verify(tmp_path, monkeypatch, capsys):
+    from seraphiel_cli import main as m
+    from seraphiel_cli.absorb import driver as d
+    repo = _mkrepo(tmp_path)
+    _git(repo, "remote", "add", "upstream", "https://example.invalid/x.git")
+    monkeypatch.chdir(repo)
+    seen = {}
+    monkeypatch.setattr(d, "commit",
+                        lambda repo, tag=None, skip_verify=False:
+                        seen.update(skip=skip_verify) or "a" * 40)
+    rc = m.cmd_absorb(_ns(commit=True, skip_verify=True))
+    assert rc == 0 and seen["skip"] is True
+
+
+def test_cli_verify_rc_maps_readiness(tmp_path, monkeypatch, capsys):
+    from seraphiel_cli import main as m
+    from seraphiel_cli.absorb import driver as d
+    repo = _mkrepo(tmp_path)
+    _git(repo, "remote", "add", "upstream", "https://example.invalid/x.git")
+    monkeypatch.chdir(repo)
+    ok = {"parity": {"ready": True, "conflicts": [], "stray": [],
+                     "divergence_violations": []},
+          "verify": {"ok": True, "tests_summary": "s"}, "merged": "m"}
+    monkeypatch.setattr(d, "verify_current", lambda repo: ok)
+    assert m.cmd_absorb(_ns(verify=True)) == 0
+    bad = {"parity": dict(ok["parity"], ready=False),
+           "verify": dict(ok["verify"], ok=False), "merged": "m"}
+    monkeypatch.setattr(d, "verify_current", lambda repo: bad)
+    assert m.cmd_absorb(_ns(verify=True)) == 1

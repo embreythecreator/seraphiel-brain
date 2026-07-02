@@ -4,6 +4,10 @@ Materializes the merged tree in a throwaway git worktree (never the operator's
 working tree), byte-compiles the changed .py files, and runs the targeted
 hermetic test set with the merged code first on sys.path. The battery gates
 `--commit` (see driver.commit); `--skip-verify` is the explicit human escape.
+
+Containment is honest but thin: a throwaway worktree plus time-boxing only —
+the battery still executes merged code with the operator's privileges, which
+is why absorb only takes pinned tags from a trusted upstream.
 """
 from __future__ import annotations
 
@@ -13,9 +17,11 @@ import subprocess
 import sys
 import tempfile
 
-# The hermetic set that ran green during the v2026.6.19 absorb, plus the absorb
-# suite itself. Paths missing from the merged tree are skipped (synthetic test
-# repos, upstream test moves) — the summary says how many actually ran.
+# Targeted battery: the absorb suite plus fast hermetic CLI/gateway tests.
+# Paths missing from the merged tree are skipped (synthetic test repos,
+# upstream test moves), and files that fail a per-file --collect-only probe
+# (e.g. an optional extra like aiohttp absent on this host) are skipped and
+# reported — the summary says how many actually ran.
 TARGETED_TESTS = [
     "tests/seraphiel_cli/test_absorb_driver.py",
     "tests/seraphiel_cli/test_absorb_detect.py",
@@ -45,13 +51,28 @@ def changed_py(repo: str, merged: str, head: str = "HEAD") -> list[str]:
     return [f for f in out if f.endswith(".py")]
 
 
+def _collectable(wt: str, targets: list[str], env: dict) -> tuple[list[str], list[str]]:
+    """Split targets into (runnable, skipped) via per-file collect-only probes.
+    A file whose collection errors (e.g. an optional dependency missing on
+    this host) is skipped and reported rather than failing the whole battery."""
+    runnable, skipped = [], []
+    for t in targets:
+        r = subprocess.run([sys.executable, "-m", "pytest", "-q", "--collect-only",
+                            "-p", "no:cacheprovider", t],
+                           cwd=wt, capture_output=True, text=True, env=env,
+                           timeout=COMPILE_TIMEOUT)
+        (runnable if r.returncode == 0 else skipped).append(t)
+    return runnable, skipped
+
+
 def run(repo: str, merged: str, head: str = "HEAD") -> dict:
     """Run the battery against a merged TREE oid. Worktree is always removed."""
     commit = _git(repo, "commit-tree", merged, "-m",
                   "absorb-verify (throwaway)").stdout.strip()
-    wt = os.path.join(tempfile.mkdtemp(prefix="absorb-verify-"), "tree")
-    _git(repo, "worktree", "add", "-q", "--detach", wt, commit)
+    tmp = tempfile.mkdtemp(prefix="absorb-verify-")
+    wt = os.path.join(tmp, "tree")
     try:
+        _git(repo, "worktree", "add", "-q", "--detach", wt, commit)
         py = [f for f in changed_py(repo, merged, head)
               if os.path.exists(os.path.join(wt, f))]
         compile_ok, compile_errors = True, ""
@@ -73,14 +94,22 @@ def run(repo: str, merged: str, head: str = "HEAD") -> dict:
             env = dict(os.environ)
             env["PYTHONPATH"] = wt + os.pathsep + env.get("PYTHONPATH", "")
             try:
-                r = subprocess.run([sys.executable, "-m", "pytest", "-q",
-                                    "-p", "no:cacheprovider", *targets],
-                                   cwd=wt, capture_output=True, text=True, env=env,
-                                   timeout=TESTS_TIMEOUT)
-                tests_ok = r.returncode == 0
-                lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
-                tests_summary = (f"{len(targets)} target files · "
-                                 + (lines[-1] if lines else f"exit {r.returncode}"))
+                runnable, skipped = _collectable(wt, targets, env)
+                if not runnable:
+                    tests_ok = False
+                    tests_summary = (f"0 of {len(targets)} targeted files "
+                                     f"collectable — check optional deps")
+                else:
+                    r = subprocess.run([sys.executable, "-m", "pytest", "-q",
+                                        "-p", "no:cacheprovider", *runnable],
+                                       cwd=wt, capture_output=True, text=True, env=env,
+                                       timeout=TESTS_TIMEOUT)
+                    tests_ok = r.returncode == 0
+                    lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
+                    tests_summary = (f"{len(runnable)} of {len(targets)} target files · "
+                                     + (lines[-1] if lines else f"exit {r.returncode}"))
+                    if skipped:
+                        tests_summary += f" · {len(skipped)} skipped (collection errors)"
             except subprocess.TimeoutExpired:
                 tests_ok = False
                 tests_summary = f"targeted tests timed out after {TESTS_TIMEOUT}s"
@@ -90,4 +119,4 @@ def run(repo: str, merged: str, head: str = "HEAD") -> dict:
     finally:
         _git(repo, "worktree", "remove", "--force", wt, check=False)
         _git(repo, "worktree", "prune", check=False)
-        shutil.rmtree(os.path.dirname(wt), ignore_errors=True)
+        shutil.rmtree(tmp, ignore_errors=True)

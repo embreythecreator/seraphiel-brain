@@ -143,3 +143,15 @@ temp git repos; add `test_absorb_divergence.py`, `test_absorb_verify.py`):
 - Version rule: minor bump per absorb.
 - `--commit` gated on the test battery, `--skip-verify` as the explicit escape.
 - Face absorb: separate follow-up spec (Brain v2 ships first, Face inherits the pattern).
+
+## Implementation deviations (accepted 2026-07-02)
+
+- §2: verify result shape shipped as `{compile_ok, compile_errors, tests_ok,
+  tests_summary, ok}` (summary string instead of passed/failed counts).
+- §2: targeted tests run in one pytest process, not per-file subprocess
+  isolation; the targeted set was verified isolation-safe run together.
+- §2: the battery probes each targeted file with `--collect-only` and skips
+  (with reporting) files that fail collection, e.g. optional deps absent on
+  the host; it is red when zero files are collectable or any collected test fails.
+- §3: `--continue` materializes via `git checkout` + `git read-tree --reset -u`
+  (equivalent to the spec'd `git restore --source`, and handles deletions exactly).

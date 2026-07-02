@@ -92,3 +92,39 @@ def test_hung_targeted_tests_time_out(tmp_path, monkeypatch):
     assert res["tests_ok"] is False and "timed out" in res["tests_summary"]
     out = _git(repo, "worktree", "list").stdout.strip().splitlines()
     assert len(out) == 1          # cleanup still ran after the timeout
+
+
+def test_uncollectable_targeted_file_is_skipped_not_fatal(tmp_path):
+    repo = _mkrepo(tmp_path, {
+        "tests/seraphiel_cli/test_absorb_driver.py": "def test_ok():\n    assert True\n",
+        "tests/seraphiel_cli/test_absorb_detect.py":
+            "import definitely_not_installed_dep\n\ndef test_x():\n    assert True\n",
+    })
+    merged = _commit_tree(repo, {"tests/seraphiel_cli/test_absorb_driver.py":
+                                 "def test_ok2():\n    assert True\n"})
+    res = verify.run(repo, merged)
+    assert res["tests_ok"] is True
+    assert "skipped" in res["tests_summary"]
+
+
+def test_all_targets_uncollectable_is_red(tmp_path):
+    repo = _mkrepo(tmp_path, {
+        "tests/seraphiel_cli/test_absorb_driver.py": "import definitely_not_installed_dep\n",
+    })
+    merged = _commit_tree(repo, {"tests/seraphiel_cli/test_absorb_driver.py":
+                                 "import definitely_not_installed_dep\n# edit\n"})
+    res = verify.run(repo, merged)
+    assert res["tests_ok"] is False and "collectable" in res["tests_summary"]
+
+
+def test_real_targeted_set_mostly_collectable():
+    """Battery must not be red-by-construction on this host: most targeted files
+    must collect in the current interpreter (optional-dep files may skip)."""
+    import os as _os, sys as _sys
+    repo = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    present = [t for t in verify.TARGETED_TESTS
+               if _os.path.exists(_os.path.join(repo, t))]
+    env = dict(_os.environ)
+    env["PYTHONPATH"] = repo + _os.pathsep + env.get("PYTHONPATH", "")
+    runnable, skipped = verify._collectable(repo, present, env)
+    assert len(runnable) >= 8, f"only {len(runnable)} collectable; skipped: {skipped}"

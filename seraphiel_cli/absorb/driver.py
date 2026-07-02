@@ -269,6 +269,11 @@ def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
         raise AbsorbRefused("HEAD moved since the absorb was prepared — "
                             "re-run `seraphiel absorb` or --abort first")
     merged = st["merged"]
+    branch = f"absorb/{tag}"
+    if _current_branch(repo) == branch:
+        if _git(repo, "diff", "--quiet", merged, check=False).returncode != 0:
+            raise AbsorbRefused("working tree differs from the verified snapshot — "
+                                "run `seraphiel absorb --verify` again before --commit")
     theirs = rebrand_tree.build_rebranded_tree(tag, attribution=True)
     rep = parity_report.report(merged, theirs, st["ours_head"], repo=repo)
     if not rep["ready"]:
@@ -278,7 +283,6 @@ def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
         raise AbsorbRefused("verify battery not green — fix and re-run "
                             "`seraphiel absorb --verify`, or pass --skip-verify (human call)")
     final_tree = _bookkeep_tree(repo, merged, tag, rep)
-    branch = f"absorb/{tag}"
     oid = _git(repo, "commit-tree", final_tree, "-p", st["ours_head"], "-m",
                f"absorb: {tag} (full parity)").stdout.strip()
     _git(repo, "update-ref", f"refs/heads/{branch}", oid)
