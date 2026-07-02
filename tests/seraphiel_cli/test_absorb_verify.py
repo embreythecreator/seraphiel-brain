@@ -63,9 +63,32 @@ def test_failing_targeted_test_fails(tmp_path):
     assert res["tests_ok"] is False and res["ok"] is False
 
 
-def test_worktree_always_cleaned(tmp_path):
+def test_worktree_and_tempdir_always_cleaned(tmp_path, monkeypatch):
     repo = _mkrepo(tmp_path, {"mod.py": "X = 1\n"})
     merged = _commit_tree(repo, {"mod.py": "def broken(:\n"})
+    vtmp = tmp_path / "vtmp"
+
+    def fake_mkdtemp(prefix):
+        vtmp.mkdir()
+        return str(vtmp)
+
+    monkeypatch.setattr(verify.tempfile, "mkdtemp", fake_mkdtemp)
     verify.run(repo, merged)
     out = _git(repo, "worktree", "list").stdout.strip().splitlines()
-    assert len(out) == 1  # only the main worktree remains
+    assert len(out) == 1          # only the main worktree remains
+    assert not vtmp.exists()      # mkdtemp parent removed too
+
+
+def test_hung_targeted_tests_time_out(tmp_path, monkeypatch):
+    repo = _mkrepo(tmp_path, {
+        "tests/seraphiel_cli/test_absorb_driver.py":
+        "import time\n\ndef test_hang():\n    time.sleep(30)\n",
+    })
+    merged = _commit_tree(
+        repo, {"tests/seraphiel_cli/test_absorb_driver.py":
+               "import time\n\ndef test_hang():\n    time.sleep(30)\n    assert True\n"})
+    monkeypatch.setattr(verify, "TESTS_TIMEOUT", 3)
+    res = verify.run(repo, merged)
+    assert res["tests_ok"] is False and "timed out" in res["tests_summary"]
+    out = _git(repo, "worktree", "list").stdout.strip().splitlines()
+    assert len(out) == 1          # cleanup still ran after the timeout

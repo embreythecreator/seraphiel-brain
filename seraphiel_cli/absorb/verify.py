@@ -8,6 +8,7 @@ hermetic test set with the merged code first on sys.path. The battery gates
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,10 @@ TARGETED_TESTS = [
     "tests/gateway/test_brain_settings_overlay.py",
     "tests/gateway/test_status.py",
 ]
+
+# Absorbed code is untrusted until verified — never let it hang the commit gate.
+COMPILE_TIMEOUT = 300
+TESTS_TIMEOUT = 1800
 
 
 def _git(repo, *args, check=True):
@@ -51,10 +56,15 @@ def run(repo: str, merged: str, head: str = "HEAD") -> dict:
               if os.path.exists(os.path.join(wt, f))]
         compile_ok, compile_errors = True, ""
         if py:
-            r = subprocess.run([sys.executable, "-m", "compileall", "-q", *py],
-                               cwd=wt, capture_output=True, text=True)
-            compile_ok = r.returncode == 0
-            compile_errors = (r.stdout + r.stderr).strip()
+            try:
+                r = subprocess.run([sys.executable, "-m", "compileall", "-q", *py],
+                                   cwd=wt, capture_output=True, text=True,
+                                   timeout=COMPILE_TIMEOUT)
+                compile_ok = r.returncode == 0
+                compile_errors = (r.stdout + r.stderr).strip()
+            except subprocess.TimeoutExpired:
+                compile_ok = False
+                compile_errors = f"compileall timed out after {COMPILE_TIMEOUT}s"
 
         targets = [t for t in TARGETED_TESTS
                    if os.path.exists(os.path.join(wt, t))]
@@ -62,16 +72,22 @@ def run(repo: str, merged: str, head: str = "HEAD") -> dict:
         if targets:
             env = dict(os.environ)
             env["PYTHONPATH"] = wt + os.pathsep + env.get("PYTHONPATH", "")
-            r = subprocess.run([sys.executable, "-m", "pytest", "-q",
-                                "-p", "no:cacheprovider", *targets],
-                               cwd=wt, capture_output=True, text=True, env=env)
-            tests_ok = r.returncode == 0
-            lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
-            tests_summary = (f"{len(targets)} target files · "
-                             + (lines[-1] if lines else f"exit {r.returncode}"))
+            try:
+                r = subprocess.run([sys.executable, "-m", "pytest", "-q",
+                                    "-p", "no:cacheprovider", *targets],
+                                   cwd=wt, capture_output=True, text=True, env=env,
+                                   timeout=TESTS_TIMEOUT)
+                tests_ok = r.returncode == 0
+                lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
+                tests_summary = (f"{len(targets)} target files · "
+                                 + (lines[-1] if lines else f"exit {r.returncode}"))
+            except subprocess.TimeoutExpired:
+                tests_ok = False
+                tests_summary = f"targeted tests timed out after {TESTS_TIMEOUT}s"
         return {"compile_ok": compile_ok, "compile_errors": compile_errors,
                 "tests_ok": tests_ok, "tests_summary": tests_summary,
                 "ok": compile_ok and tests_ok}
     finally:
         _git(repo, "worktree", "remove", "--force", wt, check=False)
         _git(repo, "worktree", "prune", check=False)
+        shutil.rmtree(os.path.dirname(wt), ignore_errors=True)
