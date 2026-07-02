@@ -91,7 +91,7 @@ def absorb(repo: str, tag: str, base_ref: str | None = None) -> dict:
     if _git(repo, "rev-parse", "-q", "--verify", f"refs/heads/{branch}", check=False).returncode == 0:
         raise AbsorbRefused(f"branch {branch} already exists; --abort it first")
     _git(repo, "branch", branch, "HEAD")
-    rep = parity_report.report(merged, theirs_tree, "HEAD")
+    rep = parity_report.report(merged, theirs_tree, "HEAD", repo=repo)
     # stash refs so commit()/abort() can finish the job
     _git(repo, "config", "--local", "absorb.lastTag", tag)
     _git(repo, "config", "--local", "absorb.lastMerged", merged)
@@ -102,7 +102,7 @@ def commit(repo: str, tag: str) -> str:
     """Finalize the stashed absorb merge — refuses unless parity is READY."""
     merged = _git(repo, "config", "--local", "--get", "absorb.lastMerged").stdout.strip()
     rep = parity_report.report(merged,
-                               rebrand_tree.build_rebranded_tree(tag, attribution=True), "HEAD")
+                               rebrand_tree.build_rebranded_tree(tag, attribution=True), "HEAD", repo=repo)
     if not rep["ready"]:
         raise AbsorbRefused("parity not READY (conflict markers or stray tokens remain)")
     commit_oid = _git(repo, "commit-tree", merged, "-p", "HEAD",

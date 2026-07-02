@@ -15,6 +15,11 @@ Usage: parity_report.py <merged-tree> <theirs-tree> <head-ref>
 import subprocess
 import sys
 
+try:
+    from . import divergence          # packaged
+except ImportError:                    # direct-script fallback
+    import divergence  # noqa: F401
+
 # Legal carve-outs keep upstream attribution; UPSTREAM_BASE.md references upstream
 # by name on purpose; the absorb harness itself defines the tokens it rewrites
 # (both its legacy script home and its packaged home).
@@ -53,23 +58,26 @@ def grep_stray(tree):
     return [f for f in files if not any(a in f for a in ALLOWED_STRAY)]
 
 
-def report(merged: str, theirs: str, head: str) -> dict:
+def report(merged: str, theirs: str, head: str, repo: str = ".") -> dict:
     """Classify the merged tree; structured result for `seraphiel absorb`.
 
     Keys: re_added / removed (vs prior HEAD), divergence (merged != THEIRS),
     conflicts (files w/ markers), stray (upstream tokens outside carve-outs),
-    ready (commit gate: no conflicts and no stray).
+    divergence_violations (genuine-divergence manifest breaches — see
+    divergence.py), ready (commit gate: no conflicts, no stray, no violations).
     """
     merged_names, head_names = names(merged), names(head)
     conflicts = grep_conflict_markers(merged)
     stray = grep_stray(merged)
+    violations = divergence.check(repo, merged)
     return {
         "re_added": len(merged_names - head_names),
         "removed": len(head_names - merged_names),
         "divergence": len(diff_names(merged, theirs)),
         "conflicts": conflicts,
         "stray": stray,
-        "ready": not conflicts and not stray,
+        "divergence_violations": violations,
+        "ready": not conflicts and not stray and not violations,
     }
 
 
@@ -97,6 +105,15 @@ def main():
             print(f"        {f}")
     else:
         print("   stray hermes/nousresearch tokens: none (outside legal carve-outs)")
+
+    viol = r["divergence_violations"]
+    if viol:
+        status_ok = False
+        print(f"   !! GENUINE-DIVERGENCE VIOLATIONS in {len(viol)} invariants:")
+        for v in viol:
+            print(f"        {v}")
+    else:
+        print("   genuine-divergence manifest: intact")
 
     print("   STATUS:", "READY to commit" if status_ok else "NEEDS RESOLUTION")
     return 0 if status_ok else 1

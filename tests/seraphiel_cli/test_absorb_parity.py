@@ -20,3 +20,27 @@ def test_report_flags_conflict_markers(monkeypatch):
     monkeypatch.setattr(parity_report, "grep_stray", lambda t: [])
     r = parity_report.report("m", "t", "HEAD")
     assert r["ready"] is False and r["conflicts"] == ["a.py"]
+
+
+def test_report_flags_divergence_violation(monkeypatch):
+    from seraphiel_cli.absorb import divergence
+    monkeypatch.setattr(parity_report, "names", lambda t: set())
+    monkeypatch.setattr(parity_report, "diff_names", lambda a, b: [])
+    monkeypatch.setattr(parity_report, "grep_conflict_markers", lambda t: [])
+    monkeypatch.setattr(parity_report, "grep_stray", lambda t: [])
+    monkeypatch.setattr(divergence, "check",
+                        lambda repo, tree: ["x.py: no longer contains '✶'"])
+    r = parity_report.report("m", "t", "HEAD")
+    assert r["ready"] is False
+    assert r["divergence_violations"] == ["x.py: no longer contains '✶'"]
+
+
+def test_report_ready_when_no_violations(monkeypatch):
+    from seraphiel_cli.absorb import divergence
+    monkeypatch.setattr(parity_report, "names", lambda t: set())
+    monkeypatch.setattr(parity_report, "diff_names", lambda a, b: [])
+    monkeypatch.setattr(parity_report, "grep_conflict_markers", lambda t: [])
+    monkeypatch.setattr(parity_report, "grep_stray", lambda t: [])
+    monkeypatch.setattr(divergence, "check", lambda repo, tree: [])
+    r = parity_report.report("m", "t", "HEAD")
+    assert r["ready"] is True and r["divergence_violations"] == []
