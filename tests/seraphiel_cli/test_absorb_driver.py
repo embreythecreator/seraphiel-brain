@@ -295,3 +295,34 @@ def test_commit_bookkeeping_and_state_clear(tmp_path, monkeypatch):
                          check=True).stdout.strip()
     assert msg == "absorb: v2026.7.0 (full parity)"
     assert driver.state(repo) is None
+
+
+def test_commit_refuses_parity_not_ready(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    not_ready = dict(READY, ready=False, conflicts=["a.py"])
+    _stub_parity(monkeypatch, rep=not_ready)
+    with pytest.raises(driver.AbsorbRefused, match="parity not READY"):
+        driver.commit(repo)
+
+
+def test_commit_syncs_materialized_worktree(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
+    _stub_parity(monkeypatch)
+    oid = driver.commit(repo)
+    cur = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    assert cur == oid   # working tree reset --hard onto the finalized commit
+    assert 'version = "0.18.0"' in (tmp_path / "r" / "pyproject.toml").read_text()
+
+
+def test_changelog_insert_between_sections_keeps_blank_lines():
+    ch = ("# Changelog\n\n## [Unreleased]\n\n### Added\n- thing\n\n"
+          "## [0.17.0] — 2026-06-30\n\n### Absorbed\n- old\n")
+    entry = "## [0.18.0] — 2026-07-02\n\n### Absorbed\n- new\n"
+    out = driver._changelog_insert(ch, entry)
+    assert out.index("[Unreleased]") < out.index("[0.18.0]") < out.index("[0.17.0]")
+    assert "- thing\n\n## [0.18.0]" in out
+    assert "- new\n\n## [0.17.0]" in out

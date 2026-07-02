@@ -202,9 +202,11 @@ def _changelog_insert(ch: str, entry: str) -> str:
     """Insert a new release section after [Unreleased], before the next release."""
     unrel = ch.find("## [Unreleased]")
     if unrel == -1:
-        return ch.rstrip() + "\n" + entry
+        return ch.rstrip() + "\n\n" + entry
     nxt = ch.find("\n## [", unrel + 1)
-    return (ch.rstrip() + "\n" + entry) if nxt == -1 else ch[:nxt] + "\n" + entry.rstrip() + "\n" + ch[nxt + 1:]
+    if nxt == -1:
+        return ch.rstrip() + "\n\n" + entry
+    return ch[:nxt].rstrip("\n") + "\n\n" + entry.rstrip() + "\n\n" + ch[nxt + 1:]
 
 
 def _bookkeep_tree(repo: str, merged: str, tag: str, rep: dict) -> str:
