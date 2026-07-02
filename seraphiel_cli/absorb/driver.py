@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import subprocess
 
-from . import rebrand_tree, parity_report
+from . import rebrand_tree, parity_report, divergence
 
 # Only blobs allowed to retain an upstream token after the rebrand: legal
 # carve-outs, the provenance/changelog docs, and the absorb harness itself
@@ -31,6 +31,37 @@ class AbsorbRefused(Exception):
 def _git(repo, *args, check=True):
     return subprocess.run(["git", "-C", repo, *args],
                           capture_output=True, text=True, check=check)
+
+
+_STATE_KEYS = ("absorb.lastTag", "absorb.lastMerged", "absorb.oursHead",
+               "absorb.verifyOk", "absorb.verifySummary")
+
+
+def _cfg_get(repo: str, key: str) -> str | None:
+    r = _git(repo, "config", "--local", "--get", key, check=False)
+    return r.stdout.strip() or None
+
+
+def _current_branch(repo: str) -> str:
+    return _git(repo, "symbolic-ref", "--short", "-q", "HEAD", check=False).stdout.strip()
+
+
+def clear_state(repo: str) -> None:
+    """Drop every absorb.* stash — abort/commit both end the in-flight absorb."""
+    for k in _STATE_KEYS:
+        _git(repo, "config", "--local", "--unset-all", k, check=False)
+
+
+def state(repo: str) -> dict | None:
+    """The in-flight absorb, or None. Single source of truth for --continue/--verify/--status."""
+    tag = _cfg_get(repo, "absorb.lastTag")
+    if not tag:
+        return None
+    return {"tag": tag,
+            "merged": _cfg_get(repo, "absorb.lastMerged"),
+            "ours_head": _cfg_get(repo, "absorb.oursHead"),
+            "verify_ok": _cfg_get(repo, "absorb.verifyOk") == "true",
+            "verify_summary": _cfg_get(repo, "absorb.verifySummary") or ""}
 
 
 def install_ok(repo: str) -> tuple[bool, str]:
@@ -76,6 +107,11 @@ def absorb(repo: str, tag: str, base_ref: str | None = None) -> dict:
     passed, detail = gate(repo, base_ref)
     if not passed:
         raise AbsorbRefused(f"fidelity gate failed (rebrand map drifted):\n{detail}")
+    drift = divergence.check(repo, "HEAD")
+    if drift:
+        raise AbsorbRefused(
+            "divergence manifest drifted on HEAD — update "
+            "seraphiel_cli/absorb/divergence.py first:\n" + "\n".join(drift))
 
     base_tree = rebrand_tree.build_rebranded_tree(base_ref, attribution=False)
     theirs_tree = rebrand_tree.build_rebranded_tree(tag, attribution=True)
@@ -95,6 +131,8 @@ def absorb(repo: str, tag: str, base_ref: str | None = None) -> dict:
     # stash refs so commit()/abort() can finish the job
     _git(repo, "config", "--local", "absorb.lastTag", tag)
     _git(repo, "config", "--local", "absorb.lastMerged", merged)
+    _git(repo, "config", "--local", "absorb.oursHead",
+         _git(repo, "rev-parse", "HEAD").stdout.strip())
     return {"branch": branch, "merged_tree": merged, "parity": rep, "ready": rep["ready"]}
 
 
@@ -111,6 +149,18 @@ def commit(repo: str, tag: str) -> str:
     return commit_oid
 
 
-def abort(repo: str, tag: str) -> None:
-    """One-step rollback: delete the absorb branch."""
-    _git(repo, "branch", "-D", f"absorb/{tag}", check=False)
+def abort(repo: str, tag: str | None = None) -> None:
+    """One-step rollback: delete the absorb branch, clear all stashed state."""
+    st = state(repo)
+    tag = tag or (st["tag"] if st else None)
+    if not tag:
+        raise AbsorbRefused("no absorb in flight and no tag given — nothing to abort")
+    branch = f"absorb/{tag}"
+    if _current_branch(repo) == branch:
+        # step off the branch before deleting it; fall back to detached ours-head
+        if _git(repo, "checkout", "-q", "-f", "main", check=False).returncode != 0:
+            _git(repo, "checkout", "-q", "-f",
+                 (st or {}).get("ours_head") or "HEAD")
+    _git(repo, "branch", "-D", branch, check=False)
+    _git(repo, "worktree", "prune", check=False)
+    clear_state(repo)
