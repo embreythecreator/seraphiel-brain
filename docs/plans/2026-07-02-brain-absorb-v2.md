@@ -16,8 +16,8 @@
 - Brand glyph is `✶` (never `⚕`). Attribution string is exactly `Embrey The Creator / The Voice`.
 - Finalize commit message is exactly `absorb: <tag> (full parity)`.
 - Version rule: **minor bump per absorb** (`0.17.0 → 0.18.0`, patch resets to 0).
-- Run everything from the repo root `~/Oblivion/seraphiel-brain` with `venv/bin/python`. `rebrand_tree.py` and `parity_report.py` use ambient-cwd git (no `-C`), so process cwd must be the repo — existing constraint, keep it.
-- Test commands: `venv/bin/python -m pytest <file> -q`. Hermetic tests create temp git repos with `git init -q -b main` and set `user.email`/`user.name` locally.
+- Run everything from the repo root `~/Oblivion/seraphiel-brain` with `.venv/bin/python`. `rebrand_tree.py` and `parity_report.py` use ambient-cwd git (no `-C`), so process cwd must be the repo — existing constraint, keep it.
+- Test commands: `.venv/bin/python -m pytest <file> -q`. Hermetic tests create temp git repos with `git init -q -b main` and set `user.email`/`user.name` locally.
 
 ---
 
@@ -99,7 +99,7 @@ def test_checks_a_tree_oid_not_just_head(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_divergence.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_divergence.py -q`
 Expected: FAIL — `ImportError: cannot import name 'divergence'`
 
 - [ ] **Step 3: Write the implementation**
@@ -151,12 +151,12 @@ def check(repo: str, tree: str) -> list[str]:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_divergence.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_divergence.py -q`
 Expected: 4 passed
 
 - [ ] **Step 5: Sanity-check against the real repo**
 
-Run: `venv/bin/python -c "from seraphiel_cli.absorb import divergence; print(divergence.check('.', 'HEAD'))"`
+Run: `.venv/bin/python -c "from seraphiel_cli.absorb import divergence; print(divergence.check('.', 'HEAD'))"`
 Expected: `[]` (all five invariants hold on today's HEAD; if not, STOP — the manifest entries must be corrected before anything else lands)
 
 - [ ] **Step 6: Commit**
@@ -210,7 +210,7 @@ def test_report_ready_when_no_violations(monkeypatch):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_parity.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_parity.py -q`
 Expected: 2 new tests FAIL with `KeyError: 'divergence_violations'`
 
 - [ ] **Step 3: Implement**
@@ -271,7 +271,7 @@ In `seraphiel_cli/absorb/driver.py:94`, pass the repo through:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_parity.py tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_parity.py tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: all pass (the pre-existing `test_report_flags_conflict_markers` still passes — its monkeypatching leaves `divergence.check` running against the real repo tree `"m"`, which returns 5 "missing" violations, but `ready` was already False from conflicts; if it fails instead, add the same `divergence.check` monkeypatch to it)
 
 - [ ] **Step 5: Commit**
@@ -369,7 +369,7 @@ def test_absorb_refuses_when_head_divergence_drifted(tmp_path, monkeypatch):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: new tests FAIL (`AttributeError: module ... has no attribute 'state'`, etc.)
 
 - [ ] **Step 3: Implement**
@@ -457,7 +457,7 @@ def abort(repo: str, tag: str | None = None) -> None:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: all pass (including the pre-existing 4)
 
 - [ ] **Step 5: Commit**
@@ -559,7 +559,7 @@ def test_worktree_always_cleaned(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_verify.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_verify.py -q`
 Expected: FAIL — `ImportError: cannot import name 'verify'`
 
 - [ ] **Step 3: Write the implementation**
@@ -648,7 +648,7 @@ def run(repo: str, merged: str, head: str = "HEAD") -> dict:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_verify.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_verify.py -q`
 Expected: 4 passed (this runs pytest-in-pytest against tiny synthetic repos; a few seconds is normal)
 
 - [ ] **Step 5: Commit**
@@ -741,7 +741,7 @@ def test_verify_current_snapshots_resolved_tree(tmp_path, monkeypatch):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: new tests FAIL (`AttributeError: ... no attribute 'materialize'`, etc.)
 
 - [ ] **Step 3: Implement**
@@ -813,7 +813,7 @@ def verify_current(repo: str) -> dict:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: all pass
 
 - [ ] **Step 5: Commit**
@@ -949,7 +949,7 @@ def test_commit_bookkeeping_and_state_clear(tmp_path, monkeypatch):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: new tests FAIL (old `commit()` crashes on missing config / lacks kwargs)
 
 - [ ] **Step 3: Implement**
@@ -1070,12 +1070,12 @@ Note: `re` and `subprocess` were already imported; keep one import block, no dup
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: all pass
 
 - [ ] **Step 5: Run the whole absorb suite**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py tests/seraphiel_cli/test_absorb_detect.py tests/seraphiel_cli/test_absorb_parity.py tests/seraphiel_cli/test_absorb_divergence.py tests/seraphiel_cli/test_absorb_verify.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py tests/seraphiel_cli/test_absorb_detect.py tests/seraphiel_cli/test_absorb_parity.py tests/seraphiel_cli/test_absorb_divergence.py tests/seraphiel_cli/test_absorb_verify.py -q`
 Expected: all pass
 
 - [ ] **Step 6: Commit**
@@ -1155,7 +1155,7 @@ def test_cli_continue_reports_refusal(capsys, tmp_path, monkeypatch):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: new CLI tests FAIL (`AttributeError: 'A' object has no attribute 'status'` inside `cmd_absorb`, or wrong output)
 
 - [ ] **Step 3: Implement**
@@ -1232,13 +1232,13 @@ Finally, in the fresh-absorb result print (after `res = driver.absorb(...)`), ad
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py -q`
 Expected: all pass
 
 - [ ] **Step 5: Smoke the real CLI**
 
-Run: `venv/bin/python -m seraphiel_cli.main absorb --help` — expect the four new flags listed.
-Run: `venv/bin/python -m seraphiel_cli.main absorb --status` — expect `✓ no absorb in flight`.
+Run: `.venv/bin/python -m seraphiel_cli.main absorb --help` — expect the four new flags listed.
+Run: `.venv/bin/python -m seraphiel_cli.main absorb --status` — expect `✓ no absorb in flight`.
 
 - [ ] **Step 6: Commit**
 
@@ -1347,15 +1347,15 @@ this table, and prepends the `CHANGELOG.md` entry — no hand edits.
 
 - [ ] **Step 4: Full absorb + neighbors test run**
 
-Run: `venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py tests/seraphiel_cli/test_absorb_detect.py tests/seraphiel_cli/test_absorb_parity.py tests/seraphiel_cli/test_absorb_divergence.py tests/seraphiel_cli/test_absorb_verify.py tests/seraphiel_cli/test_banner.py tests/seraphiel_cli/test_build_info.py -q`
+Run: `.venv/bin/python -m pytest tests/seraphiel_cli/test_absorb_driver.py tests/seraphiel_cli/test_absorb_detect.py tests/seraphiel_cli/test_absorb_parity.py tests/seraphiel_cli/test_absorb_divergence.py tests/seraphiel_cli/test_absorb_verify.py tests/seraphiel_cli/test_banner.py tests/seraphiel_cli/test_build_info.py -q`
 Expected: all pass
 
 - [ ] **Step 5: Real-repo smoke**
 
-Run: `venv/bin/python -m seraphiel_cli.main absorb --gate`
+Run: `.venv/bin/python -m seraphiel_cli.main absorb --gate`
 Expected: `✓ gate passed (0 stray tokens)`
 
-Run: `venv/bin/python -c "from seraphiel_cli.absorb import divergence; v = divergence.check('.', 'HEAD'); print(v or 'divergence manifest intact')"`
+Run: `.venv/bin/python -c "from seraphiel_cli.absorb import divergence; v = divergence.check('.', 'HEAD'); print(v or 'divergence manifest intact')"`
 Expected: `divergence manifest intact`
 
 - [ ] **Step 6: Commit**
