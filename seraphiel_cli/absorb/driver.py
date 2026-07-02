@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import subprocess
 
-from . import rebrand_tree, parity_report, divergence
+from . import rebrand_tree, parity_report, divergence, verify
 
 # Only blobs allowed to retain an upstream token after the rebrand: legal
 # carve-outs, the provenance/changelog docs, and the absorb harness itself
@@ -62,6 +62,14 @@ def state(repo: str) -> dict | None:
             "ours_head": _cfg_get(repo, "absorb.oursHead"),
             "verify_ok": _cfg_get(repo, "absorb.verifyOk") == "true",
             "verify_summary": _cfg_get(repo, "absorb.verifySummary") or ""}
+
+
+def _store_verify(repo: str, res: dict) -> None:
+    _git(repo, "config", "--local", "absorb.verifyOk",
+         "true" if res["ok"] else "false")
+    summary = res["tests_summary"] if res["compile_ok"] else \
+        f"compileall failed: {res['compile_errors'][:200]}"
+    _git(repo, "config", "--local", "absorb.verifySummary", summary)
 
 
 def install_ok(repo: str) -> tuple[bool, str]:
@@ -137,7 +145,44 @@ def absorb(repo: str, tag: str, base_ref: str | None = None) -> dict:
     _git(repo, "config", "--local", "absorb.lastMerged", merged)
     _git(repo, "config", "--local", "absorb.oursHead",
          _git(repo, "rev-parse", "HEAD").stdout.strip())
-    return {"branch": branch, "merged_tree": merged, "parity": rep, "ready": rep["ready"]}
+    vres = verify.run(repo, merged)
+    _store_verify(repo, vres)
+    return {"branch": branch, "merged_tree": merged, "parity": rep,
+            "verify": vres, "ready": rep["ready"]}
+
+
+def materialize(repo: str) -> str:
+    """--continue: put the merged tree (conflict markers and all) into the
+    working tree on the absorb branch so conflicts can be edited in place."""
+    st = state(repo)
+    if not st:
+        raise AbsorbRefused("no absorb in flight — run `seraphiel absorb <tag>` first")
+    if _git(repo, "status", "--porcelain", check=False).stdout.strip():
+        raise AbsorbRefused("working tree is dirty — commit or stash before --continue")
+    branch = f"absorb/{st['tag']}"
+    _git(repo, "checkout", "-q", branch)
+    _git(repo, "read-tree", "--reset", "-u", st["merged"])
+    return branch
+
+
+def verify_current(repo: str) -> dict:
+    """--verify: snapshot the working tree as the new merged tree when
+    materialized (on the absorb branch), then re-run parity + divergence +
+    the verification battery. Off-branch it re-verifies the stashed tree."""
+    st = state(repo)
+    if not st:
+        raise AbsorbRefused("no absorb in flight — run `seraphiel absorb <tag>` first")
+    if _current_branch(repo) == f"absorb/{st['tag']}":
+        _git(repo, "add", "-A")
+        merged = _git(repo, "write-tree").stdout.strip()
+        _git(repo, "config", "--local", "absorb.lastMerged", merged)
+    else:
+        merged = st["merged"]
+    theirs = rebrand_tree.build_rebranded_tree(st["tag"], attribution=True)
+    rep = parity_report.report(merged, theirs, st["ours_head"], repo=repo)
+    vres = verify.run(repo, merged, head=st["ours_head"])
+    _store_verify(repo, vres)
+    return {"parity": rep, "verify": vres, "merged": merged}
 
 
 def commit(repo: str, tag: str) -> str:

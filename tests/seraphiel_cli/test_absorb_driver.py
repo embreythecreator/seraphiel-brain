@@ -128,3 +128,63 @@ def test_abort_refuses_when_it_cannot_step_off_branch(tmp_path):
     with pytest.raises(driver.AbsorbRefused, match="could not step off"):
         driver.abort(repo)
     assert driver.state(repo) is not None   # state preserved for retry
+
+
+def test_materialize_refuses_without_state(tmp_path):
+    repo = _mkrepo(tmp_path)
+    with pytest.raises(driver.AbsorbRefused, match="no absorb in flight"):
+        driver.materialize(repo)
+
+
+def test_materialize_refuses_dirty_tree(tmp_path):
+    repo = _mkrepo(tmp_path)
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    (tmp_path / "r" / "a.txt").write_text("dirty\n")
+    with pytest.raises(driver.AbsorbRefused, match="dirty"):
+        driver.materialize(repo)
+
+
+def test_materialize_checks_out_merged_tree(tmp_path):
+    repo = _mkrepo(tmp_path)
+    # build a "merged" tree with a conflict-marker file, stash it as state
+    (tmp_path / "r" / "a.txt").write_text("<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\n")
+    _git(repo, "add", "-A")
+    merged = subprocess.run(["git", "-C", repo, "write-tree"],
+                            capture_output=True, text=True, check=True).stdout.strip()
+    _git(repo, "reset", "-q", "--hard")   # back to clean HEAD (index + working tree)
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    _git(repo, "branch", "absorb/v2026.7.0")
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    _git(repo, "config", "--local", "absorb.lastMerged", merged)
+    _git(repo, "config", "--local", "absorb.oursHead", head)
+    branch = driver.materialize(repo)
+    assert branch == "absorb/v2026.7.0"
+    assert "<<<<<<<" in (tmp_path / "r" / "a.txt").read_text()
+
+
+def test_verify_current_snapshots_resolved_tree(tmp_path, monkeypatch):
+    repo = _mkrepo(tmp_path)
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    _git(repo, "branch", "absorb/v2026.7.0")
+    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
+    (tmp_path / "r" / "a.txt").write_text("resolved\n")
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    _git(repo, "config", "--local", "absorb.lastMerged", "0" * 40)
+    _git(repo, "config", "--local", "absorb.oursHead", head)
+    monkeypatch.setattr(driver.rebrand_tree, "build_rebranded_tree",
+                        lambda ref, attribution=True: "unused-theirs")
+    fake_rep = {"ready": True, "conflicts": [], "stray": [],
+                "divergence_violations": [], "re_added": 0, "removed": 0,
+                "divergence": 0}
+    monkeypatch.setattr(driver.parity_report, "report",
+                        lambda m, t, h, repo=".": fake_rep)
+    monkeypatch.setattr(driver.verify, "run",
+                        lambda repo, merged, head="HEAD":
+                        {"ok": True, "compile_ok": True, "compile_errors": "",
+                         "tests_ok": True, "tests_summary": "stub"})
+    res = driver.verify_current(repo)
+    assert res["merged"] != "0" * 40                       # snapshot happened
+    assert driver.state(repo)["merged"] == res["merged"]   # state updated
+    assert driver.state(repo)["verify_ok"] is True
