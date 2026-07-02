@@ -188,3 +188,110 @@ def test_verify_current_snapshots_resolved_tree(tmp_path, monkeypatch):
     assert res["merged"] != "0" * 40                       # snapshot happened
     assert driver.state(repo)["merged"] == res["merged"]   # state updated
     assert driver.state(repo)["verify_ok"] is True
+
+
+BOOK_FILES = {
+    "pyproject.toml": '[project]\nname = "seraphiel-brain"\nversion = "0.17.0"\n',
+    "UPSTREAM_BASE.md": (
+        "| | value |\n|---|---|\n"
+        "| Current tree corresponds to | **Hermes v0.17.0** |\n"
+        "| Upstream tag | `v2026.6.19` |\n"
+        "| Upstream commit | `2bd1977d8` |\n"
+        "| Our version (independent line) | `0.17.0` (pyproject.toml — source of truth) |\n"),
+    "CHANGELOG.md": "# Changelog\n\n## [Unreleased]\n\n### Added\n- thing\n",
+}
+
+
+def _mkrepo_book(tmp_path):
+    repo = tmp_path / "r"
+    repo.mkdir()
+    _git(str(repo), "init", "-q", "-b", "main")
+    _git(str(repo), "config", "user.email", "t@t")
+    _git(str(repo), "config", "user.name", "t")
+    for path, body in BOOK_FILES.items():
+        (repo / path).write_text(body, encoding="utf-8")
+    _git(str(repo), "add", "-A")
+    _git(str(repo), "commit", "-q", "-m", "init")
+    _git(str(repo), "tag", "v2026.7.0")
+    return str(repo)
+
+
+def _arm_state(repo, verify_ok="true"):
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    tree = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD^{tree}"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    _git(repo, "branch", "absorb/v2026.7.0")
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    _git(repo, "config", "--local", "absorb.lastMerged", tree)
+    _git(repo, "config", "--local", "absorb.oursHead", head)
+    _git(repo, "config", "--local", "absorb.verifyOk", verify_ok)
+    return head, tree
+
+
+READY = {"ready": True, "conflicts": [], "stray": [], "divergence_violations": [],
+         "re_added": 3, "removed": 1, "divergence": 4}
+
+
+def _stub_parity(monkeypatch, rep=READY):
+    monkeypatch.setattr(driver.rebrand_tree, "build_rebranded_tree",
+                        lambda ref, attribution=True: "unused-theirs")
+    monkeypatch.setattr(driver.parity_report, "report",
+                        lambda m, t, h, repo=".": rep)
+
+
+def test_commit_refuses_without_state(tmp_path):
+    repo = _mkrepo_book(tmp_path)
+    with pytest.raises(driver.AbsorbRefused, match="no absorb in flight"):
+        driver.commit(repo)
+
+
+def test_commit_refuses_tag_mismatch(tmp_path):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    with pytest.raises(driver.AbsorbRefused, match="tag mismatch"):
+        driver.commit(repo, "v2026.8.0")
+
+
+def test_commit_refuses_moved_head(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    (tmp_path / "r" / "new.txt").write_text("x\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "moved")
+    _stub_parity(monkeypatch)
+    with pytest.raises(driver.AbsorbRefused, match="HEAD moved"):
+        driver.commit(repo)
+
+
+def test_commit_refuses_red_verify_unless_skipped(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo, verify_ok="false")
+    _stub_parity(monkeypatch)
+    with pytest.raises(driver.AbsorbRefused, match="verify battery"):
+        driver.commit(repo)
+    oid = driver.commit(repo, skip_verify=True)
+    assert len(oid) == 40
+
+
+def test_commit_bookkeeping_and_state_clear(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    _stub_parity(monkeypatch)
+    oid = driver.commit(repo)
+    def show(path):
+        return subprocess.run(["git", "-C", repo, "show", f"{oid}:{path}"],
+                              capture_output=True, text=True, check=True).stdout
+    assert 'version = "0.18.0"' in show("pyproject.toml")
+    ub = show("UPSTREAM_BASE.md")
+    assert "| Upstream tag | `v2026.7.0` |" in ub
+    assert "**Hermes v0.18.0**" in ub and "`0.18.0` (pyproject.toml" in ub
+    ch = show("CHANGELOG.md")
+    assert "## [0.18.0]" in ch and "`v2026.6.19` → `v2026.7.0`" in ch
+    assert "re-added 3, removed 1, divergence 4" in ch
+    assert ch.index("[Unreleased]") < ch.index("[0.18.0]")
+    msg = subprocess.run(["git", "-C", repo, "log", "-1", "--format=%s",
+                          "absorb/v2026.7.0"], capture_output=True, text=True,
+                         check=True).stdout.strip()
+    assert msg == "absorb: v2026.7.0 (full parity)"
+    assert driver.state(repo) is None

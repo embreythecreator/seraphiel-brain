@@ -10,8 +10,11 @@ pushes or touches `main`.
 """
 from __future__ import annotations
 
+import datetime
+import os
 import re
 import subprocess
+import tempfile
 
 from . import rebrand_tree, parity_report, divergence, verify
 
@@ -185,17 +188,102 @@ def verify_current(repo: str) -> dict:
     return {"parity": rep, "verify": vres, "merged": merged}
 
 
-def commit(repo: str, tag: str) -> str:
-    """Finalize the stashed absorb merge — refuses unless parity is READY."""
-    merged = _git(repo, "config", "--local", "--get", "absorb.lastMerged").stdout.strip()
-    rep = parity_report.report(merged,
-                               rebrand_tree.build_rebranded_tree(tag, attribution=True), "HEAD", repo=repo)
+def _read_blob(repo: str, tree: str, path: str) -> str:
+    return _git(repo, "cat-file", "-p", f"{tree}:{path}").stdout
+
+
+def _hash_blob(repo: str, text: str) -> str:
+    r = subprocess.run(["git", "-C", repo, "hash-object", "-w", "--stdin"],
+                       input=text.encode(), capture_output=True, check=True)
+    return r.stdout.decode().strip()
+
+
+def _changelog_insert(ch: str, entry: str) -> str:
+    """Insert a new release section after [Unreleased], before the next release."""
+    unrel = ch.find("## [Unreleased]")
+    if unrel == -1:
+        return ch.rstrip() + "\n" + entry
+    nxt = ch.find("\n## [", unrel + 1)
+    return (ch.rstrip() + "\n" + entry) if nxt == -1 else ch[:nxt] + "\n" + entry.rstrip() + "\n" + ch[nxt + 1:]
+
+
+def _bookkeep_tree(repo: str, merged: str, tag: str, rep: dict) -> str:
+    """Fold version bump + UPSTREAM_BASE.md row + CHANGELOG entry into the tree."""
+    old_base = current_base(repo)
+    py = _read_blob(repo, merged, "pyproject.toml")
+    m = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', py, re.M)
+    if not m:
+        raise AbsorbRefused("could not find the version line in pyproject.toml")
+    newver = f"{m.group(1)}.{int(m.group(2)) + 1}.0"       # minor bump per absorb
+    py = py[:m.start()] + f'version = "{newver}"' + py[m.end():]
+
+    up_commit = _git(repo, "rev-parse", "--short",
+                     f"{tag}^{{commit}}").stdout.strip()
+    ub = _read_blob(repo, merged, "UPSTREAM_BASE.md")
+    ub = re.sub(r"\| Upstream tag \| `[^`]+` \|",
+                f"| Upstream tag | `{tag}` |", ub)
+    ub = re.sub(r"\| Upstream commit \| `[^`]+` \|",
+                f"| Upstream commit | `{up_commit}` |", ub)
+    ub = re.sub(r"\| Current tree corresponds to \| \*\*Hermes v[0-9.]+\*\* \|",
+                f"| Current tree corresponds to | **Hermes v{newver}** |", ub)
+    ub = re.sub(r"\| Our version \(independent line\) \| `[0-9.]+`",
+                f"| Our version (independent line) | `{newver}`", ub)
+
+    today = datetime.date.today().isoformat()
+    entry = (f"## [{newver}] — {today}\n\n### Absorbed\n"
+             f"- **hermes-agent `{old_base}` → `{tag}`** (full parity): "
+             f"re-added {rep['re_added']}, removed {rep['removed']}, "
+             f"divergence {rep['divergence']} files.\n")
+    ch = _changelog_insert(_read_blob(repo, merged, "CHANGELOG.md"), entry)
+
+    blobs = {"pyproject.toml": _hash_blob(repo, py),
+             "UPSTREAM_BASE.md": _hash_blob(repo, ub),
+             "CHANGELOG.md": _hash_blob(repo, ch)}
+    with tempfile.NamedTemporaryFile(prefix="absorb-idx-", delete=False) as f:
+        idx = f.name
+    env = dict(os.environ, GIT_INDEX_FILE=idx)
+    try:
+        subprocess.run(["git", "-C", repo, "read-tree", merged],
+                       env=env, check=True)
+        info = "".join(f"100644 {oid}\t{path}\n" for path, oid in blobs.items())
+        subprocess.run(["git", "-C", repo, "update-index", "--index-info"],
+                       env=env, input=info.encode(), check=True)
+        return subprocess.run(["git", "-C", repo, "write-tree"], env=env,
+                              capture_output=True, check=True).stdout.decode().strip()
+    finally:
+        os.unlink(idx)
+
+
+def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
+    """Finalize the in-flight absorb — every guardrail re-checked here."""
+    st = state(repo)
+    if not st:
+        raise AbsorbRefused("no absorb in flight — nothing to commit")
+    if tag and tag != st["tag"]:
+        raise AbsorbRefused(f"tag mismatch: in-flight absorb is {st['tag']}, got {tag}")
+    tag = st["tag"]
+    head = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    if head != st["ours_head"]:
+        raise AbsorbRefused("HEAD moved since the absorb was prepared — "
+                            "re-run `seraphiel absorb` or --abort first")
+    merged = st["merged"]
+    theirs = rebrand_tree.build_rebranded_tree(tag, attribution=True)
+    rep = parity_report.report(merged, theirs, st["ours_head"], repo=repo)
     if not rep["ready"]:
-        raise AbsorbRefused("parity not READY (conflict markers or stray tokens remain)")
-    commit_oid = _git(repo, "commit-tree", merged, "-p", "HEAD",
-                      "-m", f"absorb: {tag} (full parity)").stdout.strip()
-    _git(repo, "update-ref", f"refs/heads/absorb/{tag}", commit_oid)
-    return commit_oid
+        raise AbsorbRefused("parity not READY (conflicts, stray tokens, or "
+                            "divergence violations remain) — run --verify for detail")
+    if not skip_verify and not st["verify_ok"]:
+        raise AbsorbRefused("verify battery not green — fix and re-run "
+                            "`seraphiel absorb --verify`, or pass --skip-verify (human call)")
+    final_tree = _bookkeep_tree(repo, merged, tag, rep)
+    branch = f"absorb/{tag}"
+    oid = _git(repo, "commit-tree", final_tree, "-p", st["ours_head"], "-m",
+               f"absorb: {tag} (full parity)").stdout.strip()
+    _git(repo, "update-ref", f"refs/heads/{branch}", oid)
+    if _current_branch(repo) == branch:
+        _git(repo, "reset", "-q", "--hard", oid)   # sync a materialized worktree
+    clear_state(repo)
+    return oid
 
 
 def abort(repo: str, tag: str | None = None) -> None:
