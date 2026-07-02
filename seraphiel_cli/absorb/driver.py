@@ -101,6 +101,10 @@ def absorb(repo: str, tag: str, base_ref: str | None = None) -> dict:
     ok, msg = install_ok(repo)
     if not ok:
         raise AbsorbRefused(msg)
+    st = state(repo)
+    if st and st["tag"] != tag:
+        raise AbsorbRefused(f"absorb {st['tag']} already in flight — "
+                            f"--commit or --abort it before starting {tag}")
     base_ref = base_ref or current_base(repo)
     if _git(repo, "rev-parse", "-q", "--verify", f"refs/tags/{tag}", check=False).returncode != 0:
         _git(repo, "fetch", "-q", "upstream", "tag", tag)
@@ -161,6 +165,9 @@ def abort(repo: str, tag: str | None = None) -> None:
         if _git(repo, "checkout", "-q", "-f", "main", check=False).returncode != 0:
             _git(repo, "checkout", "-q", "-f",
                  (st or {}).get("ours_head") or "HEAD")
+    if _current_branch(repo) == branch:
+        raise AbsorbRefused(f"could not step off {branch} — "
+                            f"check out another branch, then re-run --abort")
     _git(repo, "branch", "-D", branch, check=False)
     _git(repo, "worktree", "prune", check=False)
     clear_state(repo)

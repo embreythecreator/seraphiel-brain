@@ -102,3 +102,29 @@ def test_absorb_refuses_when_head_divergence_drifted(tmp_path, monkeypatch):
                         lambda ref, attribution=True: "unused")
     with pytest.raises(driver.AbsorbRefused, match="divergence manifest drifted"):
         driver.absorb(repo, "v2026.7.0")
+
+
+def test_absorb_refuses_second_tag_while_in_flight(tmp_path):
+    repo = _mkrepo(tmp_path)
+    _git(repo, "remote", "add", "upstream", "https://example.invalid/x.git")
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    with pytest.raises(driver.AbsorbRefused, match="already in flight"):
+        driver.absorb(repo, "v2026.8.0")
+
+
+def test_abort_refuses_when_it_cannot_step_off_branch(tmp_path):
+    repo = tmp_path / "r"
+    repo.mkdir()
+    _git(str(repo), "init", "-q", "-b", "trunk")   # no `main` branch exists
+    _git(str(repo), "config", "user.email", "t@t")
+    _git(str(repo), "config", "user.name", "t")
+    (repo / "a.txt").write_text("hello\n")
+    _git(str(repo), "add", "-A")
+    _git(str(repo), "commit", "-q", "-m", "init")
+    repo = str(repo)
+    _git(repo, "checkout", "-q", "-b", "absorb/v2026.7.0")
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    # no ours_head stashed and no `main` → both step-off attempts fail
+    with pytest.raises(driver.AbsorbRefused, match="could not step off"):
+        driver.abort(repo)
+    assert driver.state(repo) is not None   # state preserved for retry
