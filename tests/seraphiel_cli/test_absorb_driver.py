@@ -32,11 +32,17 @@ def test_fidelity_gate_passes_on_current_tree():
     assert ok, f"rebrand map drifted; stray tokens:\n{detail}"
 
 
+def _ns(**kw):
+    base = dict(command="absorb", tag=None, base=None, check=False, gate=False,
+                commit=False, abort=False, cont=False, verify=False,
+                status=False, skip_verify=False)
+    base.update(kw)
+    return type("A", (), base)()
+
+
 def test_cli_absorb_gate_runs(capsys):
     from seraphiel_cli import main as m
-    ns = type("A", (), {"command": "absorb", "tag": None, "base": None,
-                        "check": False, "gate": True, "commit": False, "abort": False})()
-    rc = m.cmd_absorb(ns)
+    rc = m.cmd_absorb(_ns(gate=True))
     assert rc in (0, 1)
     assert "gate" in capsys.readouterr().out.lower()
 
@@ -326,3 +332,36 @@ def test_changelog_insert_between_sections_keeps_blank_lines():
     assert out.index("[Unreleased]") < out.index("[0.18.0]") < out.index("[0.17.0]")
     assert "- thing\n\n## [0.18.0]" in out
     assert "- new\n\n## [0.17.0]" in out
+
+
+def test_cli_status_no_absorb(capsys, tmp_path, monkeypatch):
+    from seraphiel_cli import main as m
+    repo = _mkrepo(tmp_path)
+    _git(repo, "remote", "add", "upstream", "https://example.invalid/x.git")
+    monkeypatch.chdir(repo)
+    rc = m.cmd_absorb(_ns(status=True))
+    assert rc == 0
+    assert "no absorb in flight" in capsys.readouterr().out
+
+
+def test_cli_status_in_flight(capsys, tmp_path, monkeypatch):
+    from seraphiel_cli import main as m
+    repo = _mkrepo(tmp_path)
+    _git(repo, "remote", "add", "upstream", "https://example.invalid/x.git")
+    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    _git(repo, "config", "--local", "absorb.verifyOk", "true")
+    _git(repo, "config", "--local", "absorb.verifySummary", "11 target files · 295 passed")
+    monkeypatch.chdir(repo)
+    rc = m.cmd_absorb(_ns(status=True))
+    out = capsys.readouterr().out
+    assert rc == 0 and "v2026.7.0" in out and "green" in out
+
+
+def test_cli_continue_reports_refusal(capsys, tmp_path, monkeypatch):
+    from seraphiel_cli import main as m
+    repo = _mkrepo(tmp_path)
+    _git(repo, "remote", "add", "upstream", "https://example.invalid/x.git")
+    monkeypatch.chdir(repo)
+    rc = m.cmd_absorb(_ns(cont=True))
+    assert rc == 2
+    assert "no absorb in flight" in capsys.readouterr().out

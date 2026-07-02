@@ -11593,16 +11593,42 @@ def cmd_absorb(args) -> int:
               else f"  ✗ gate failed:\n{detail}")
         return 0 if passed else 1
     try:
+        if args.status:
+            st = driver.state(repo)
+            if not st:
+                print("  ✓ no absorb in flight")
+                return 0
+            light = "green" if st["verify_ok"] else "RED"
+            print(f"  absorb/{st['tag']} in flight · verify {light}"
+                  + (f" · {st['verify_summary']}" if st["verify_summary"] else ""))
+            print(f"  next: `seraphiel absorb --continue` to resolve, "
+                  f"`seraphiel absorb --verify` to re-check, "
+                  f"`seraphiel absorb --commit` to finalize")
+            return 0
+        if args.cont:
+            branch = driver.materialize(repo)
+            print(f"  ✓ merge materialized on {branch} — resolve conflicts, "
+                  f"then `seraphiel absorb --verify`")
+            return 0
+        if args.verify:
+            res = driver.verify_current(repo)
+            p, v = res["parity"], res["verify"]
+            print(f"  parity: {'READY' if p['ready'] else 'NEEDS RESOLUTION'} · "
+                  f"conflicts {len(p['conflicts'])} · stray {len(p['stray'])} · "
+                  f"divergence violations {len(p['divergence_violations'])}")
+            print(f"  verify: {'green' if v['ok'] else 'RED'} · {v['tests_summary']}")
+            return 0 if (p["ready"] and v["ok"]) else 1
         if args.abort:
             driver.abort(repo, args.tag)
-            print(f"  ✓ aborted absorb/{args.tag}")
+            print(f"  ✓ aborted{' absorb/' + args.tag if args.tag else ' the in-flight absorb'}")
             return 0
         if args.commit:
-            oid = driver.commit(repo, args.tag)
-            print(f"  ✓ committed {oid} on absorb/{args.tag}")
+            oid = driver.commit(repo, args.tag, skip_verify=args.skip_verify)
+            print(f"  ✓ committed {oid} — merge to main when ready (human step)")
             return 0
         if not args.tag:
-            print("  usage: seraphiel absorb <tag> | --check | --gate | --commit | --abort")
+            print("  usage: seraphiel absorb <tag> | --check | --gate | --status | "
+                  "--continue | --verify | --commit | --abort")
             return 2
         res = driver.absorb(repo, args.tag, args.base)
         p = res["parity"]
@@ -11611,6 +11637,8 @@ def cmd_absorb(args) -> int:
             print(f"  ✓ clean — review, then `seraphiel absorb {args.tag} --commit`")
         else:
             print(f"  conflicts/markers in {len(p['conflicts'])} files — resolve then --commit")
+        v = res["verify"]
+        print(f"  verify: {'green' if v['ok'] else 'RED'} · {v['tests_summary']}")
         return 0
     except driver.AbsorbRefused as e:
         print(f"  ✗ {e}")
@@ -11849,6 +11877,14 @@ def main():
     absorb_parser.add_argument("--gate", action="store_true", help="only run the rebrand fidelity gate")
     absorb_parser.add_argument("--commit", action="store_true", help="finalize the absorb (requires parity READY)")
     absorb_parser.add_argument("--abort", action="store_true", help="delete the absorb branch and restore")
+    absorb_parser.add_argument("--continue", dest="cont", action="store_true",
+                               help="materialize the in-flight merge into the working tree to resolve conflicts")
+    absorb_parser.add_argument("--verify", action="store_true",
+                               help="snapshot resolved files (when materialized) and re-run parity + the verify battery")
+    absorb_parser.add_argument("--status", action="store_true",
+                               help="show the in-flight absorb (tag, verify state)")
+    absorb_parser.add_argument("--skip-verify", dest="skip_verify", action="store_true",
+                               help="with --commit: finalize despite a red verify battery (human call)")
     absorb_parser.set_defaults(func=cmd_absorb)
 
     # =========================================================================
