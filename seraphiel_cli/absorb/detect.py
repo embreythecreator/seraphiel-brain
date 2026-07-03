@@ -37,8 +37,14 @@ def newer_tags(base: str, tags: list[str]) -> list[str]:
     return sorted({t for t in tags if _key(t) > b}, key=_key)
 
 
+def cache_file(repo: str) -> Path:
+    """Single source of truth for the check-cache path (driver invalidates it
+    on --commit so a fresh cache can't keep offering the just-absorbed tag)."""
+    return Path(repo) / ".git" / "absorb_check.json"
+
+
 def latest_absorbable(repo: str, *, ttl: int = 21600) -> str | None:
-    cache = Path(repo) / ".git" / "absorb_check.json"
+    cache = cache_file(repo)
     try:
         data = json.loads(cache.read_text())
         if time.time() - data["t"] < ttl:

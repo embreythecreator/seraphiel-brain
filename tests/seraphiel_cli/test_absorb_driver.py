@@ -205,6 +205,9 @@ BOOK_FILES = {
         "| Upstream commit | `2bd1977d8` |\n"
         "| Our version (independent line) | `0.17.0` (pyproject.toml — source of truth) |\n"),
     "CHANGELOG.md": "# Changelog\n\n## [Unreleased]\n\n### Added\n- thing\n",
+    # Deliberately stale (not old-version-minus-one): bookkeeping must SYNC it
+    # to the new version, not bump it independently.
+    "seraphiel_cli/__init__.py": '__version__ = "0.16.9"\n',
 }
 
 
@@ -215,6 +218,7 @@ def _mkrepo_book(tmp_path):
     _git(str(repo), "config", "user.email", "t@t")
     _git(str(repo), "config", "user.name", "t")
     for path, body in BOOK_FILES.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
         (repo / path).write_text(body, encoding="utf-8")
     _git(str(repo), "add", "-A")
     _git(str(repo), "commit", "-q", "-m", "init")
@@ -300,7 +304,45 @@ def test_commit_bookkeeping_and_state_clear(tmp_path, monkeypatch):
                           "absorb/v2026.7.0"], capture_output=True, text=True,
                          check=True).stdout.strip()
     assert msg == "absorb: v2026.7.0 (full parity)"
+    assert '__version__ = "0.18.0"' in show("seraphiel_cli/__init__.py")
     assert driver.state(repo) is None
+
+
+def test_commit_version_bumps_from_ours_head_not_merged(tmp_path, monkeypatch):
+    # Upstream bumped their own pyproject version inside the merged tree. The
+    # independent Seraphiel line must still bump from OUR previous HEAD
+    # (0.17.0 -> 0.18.0), not ride upstream's number + 1.
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    _stub_parity(monkeypatch)
+    r = tmp_path / "r"
+    (r / "pyproject.toml").write_text(
+        '[project]\nname = "seraphiel-brain"\nversion = "0.31.0"\n')
+    _git(repo, "add", "-A")
+    merged = subprocess.run(["git", "-C", repo, "write-tree"],
+                            capture_output=True, text=True, check=True).stdout.strip()
+    _git(repo, "reset", "-q", "--hard")
+    _git(repo, "config", "--local", "absorb.lastMerged", merged)
+    oid = driver.commit(repo)
+    py = subprocess.run(["git", "-C", repo, "show", f"{oid}:pyproject.toml"],
+                        capture_output=True, text=True, check=True).stdout
+    assert 'version = "0.18.0"' in py
+    init = subprocess.run(["git", "-C", repo, "show", f"{oid}:seraphiel_cli/__init__.py"],
+                          capture_output=True, text=True, check=True).stdout
+    assert '__version__ = "0.18.0"' in init
+
+
+def test_commit_invalidates_check_cache(tmp_path, monkeypatch):
+    # A fresh detect cache from before the absorb must not survive --commit,
+    # or --check keeps offering the tag that was just absorbed until the TTL
+    # expires.
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    _stub_parity(monkeypatch)
+    cache = tmp_path / "r" / ".git" / "absorb_check.json"
+    cache.write_text('{"t": 99999999999, "tag": "v2026.7.0"}')
+    driver.commit(repo)
+    assert not cache.exists()
 
 
 def test_commit_refuses_parity_not_ready(tmp_path, monkeypatch):

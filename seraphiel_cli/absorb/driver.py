@@ -209,15 +209,31 @@ def _changelog_insert(ch: str, entry: str) -> str:
     return ch[:nxt].rstrip("\n") + "\n\n" + entry.rstrip() + "\n\n" + ch[nxt + 1:]
 
 
-def _bookkeep_tree(repo: str, merged: str, tag: str, rep: dict) -> str:
+def _bookkeep_tree(repo: str, merged: str, tag: str, rep: dict,
+                   ours_head: str) -> str:
     """Fold version bump + UPSTREAM_BASE.md row + CHANGELOG entry into the tree."""
     old_base = current_base(repo)
+    # The independent Seraphiel version line bumps from OUR previous HEAD —
+    # the merged tree's version can carry upstream's own bump, and reading it
+    # would make our line ride upstream's number instead of incrementing ours.
+    ours_py = _read_blob(repo, ours_head, "pyproject.toml")
+    mo = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', ours_py, re.M)
+    if not mo:
+        raise AbsorbRefused("could not find the version line in ours-HEAD pyproject.toml")
+    newver = f"{mo.group(1)}.{int(mo.group(2)) + 1}.0"     # minor bump per absorb
     py = _read_blob(repo, merged, "pyproject.toml")
     m = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', py, re.M)
     if not m:
         raise AbsorbRefused("could not find the version line in pyproject.toml")
-    newver = f"{m.group(1)}.{int(m.group(2)) + 1}.0"       # minor bump per absorb
     py = py[:m.start()] + f'version = "{newver}"' + py[m.end():]
+
+    # seraphiel --version reads seraphiel_cli.__version__, not pyproject; the
+    # merge can bring upstream's value in, so sync it or the two lines skew.
+    init = _read_blob(repo, merged, "seraphiel_cli/__init__.py")
+    mi = re.search(r'^__version__ = "[^"]+"', init, re.M)
+    if not mi:
+        raise AbsorbRefused("could not find __version__ in seraphiel_cli/__init__.py")
+    init = init[:mi.start()] + f'__version__ = "{newver}"' + init[mi.end():]
 
     up_commit = _git(repo, "rev-parse", "--short",
                      f"{tag}^{{commit}}").stdout.strip()
@@ -239,6 +255,7 @@ def _bookkeep_tree(repo: str, merged: str, tag: str, rep: dict) -> str:
     ch = _changelog_insert(_read_blob(repo, merged, "CHANGELOG.md"), entry)
 
     blobs = {"pyproject.toml": _hash_blob(repo, py),
+             "seraphiel_cli/__init__.py": _hash_blob(repo, init),
              "UPSTREAM_BASE.md": _hash_blob(repo, ub),
              "CHANGELOG.md": _hash_blob(repo, ch)}
     with tempfile.NamedTemporaryFile(prefix="absorb-idx-", delete=False) as f:
@@ -282,13 +299,17 @@ def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
     if not skip_verify and not st["verify_ok"]:
         raise AbsorbRefused("verify battery not green — fix and re-run "
                             "`seraphiel absorb --verify`, or pass --skip-verify (human call)")
-    final_tree = _bookkeep_tree(repo, merged, tag, rep)
+    final_tree = _bookkeep_tree(repo, merged, tag, rep, st["ours_head"])
     oid = _git(repo, "commit-tree", final_tree, "-p", st["ours_head"], "-m",
                f"absorb: {tag} (full parity)").stdout.strip()
     _git(repo, "update-ref", f"refs/heads/{branch}", oid)
     if _current_branch(repo) == branch:
         _git(repo, "reset", "-q", "--hard", oid)   # sync a materialized worktree
     clear_state(repo)
+    # The detect cache predates the absorb; left alone it keeps offering the
+    # tag that was just absorbed until its TTL expires.
+    from . import detect
+    detect.cache_file(repo).unlink(missing_ok=True)
     return oid
 
 
