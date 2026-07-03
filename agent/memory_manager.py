@@ -36,6 +36,7 @@ from typing import Any, Callable, Dict, List, Optional
 from agent.memory_provider import MemoryProvider
 from agent.skill_commands import extract_user_instruction_from_skill_message
 from tools.registry import tool_error
+from tools.threat_patterns import scan_for_threats
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,7 @@ _INTERNAL_NOTE_RE = re.compile(
     r'\[System note:\s*The following is recalled memory context,\s*NOT new user input\.\s*Treat as (?:informational background data|authoritative reference data[^\]]*)\.\]\s*',
     re.IGNORECASE,
 )
+_PREFETCH_ITEM_START_RE = re.compile(r'^\s*(?:[-*+]\s+|\d+[.)]\s+)')
 
 
 def sanitize_context(text: str) -> str:
@@ -166,6 +168,85 @@ def sanitize_context(text: str) -> str:
     text = _INTERNAL_NOTE_RE.sub('', text)
     text = _FENCE_TAG_RE.sub('', text)
     return text
+
+
+def _split_prefetch_context_items(text: str) -> List[str]:
+    """Split provider recall text into conservative item-sized chunks."""
+    items: List[str] = []
+    current: List[str] = []
+    mode = ""
+
+    def flush() -> None:
+        nonlocal current, mode
+        if current:
+            items.append("".join(current))
+            current = []
+        mode = ""
+
+    for line in text.splitlines(keepends=True):
+        if not line.strip():
+            if current:
+                current.append(line)
+                flush()
+            else:
+                items.append(line)
+            continue
+
+        if _PREFETCH_ITEM_START_RE.match(line):
+            flush()
+            current = [line]
+            mode = "bullet"
+            continue
+
+        if mode == "bullet" and line.startswith((" ", "\t")):
+            current.append(line)
+            continue
+
+        if mode == "paragraph":
+            current.append(line)
+            continue
+
+        flush()
+        current = [line]
+        mode = "paragraph"
+
+    flush()
+    return items
+
+
+def _filter_recalled_memory_context(provider_name: str, raw_context: str) -> str:
+    """Drop threat-matching recalled memory chunks before context fencing."""
+    findings = scan_for_threats(raw_context, scope="context")
+    if not findings:
+        return raw_context
+
+    kept: List[str] = []
+    dropped = 0
+    for item in _split_prefetch_context_items(raw_context):
+        if not item.strip():
+            kept.append(item)
+            continue
+        item_findings = scan_for_threats(item, scope="context")
+        if item_findings:
+            dropped += 1
+            logger.warning(
+                "Memory provider '%s' prefetch item blocked at load time: "
+                "threat match(es): %s",
+                provider_name,
+                ", ".join(item_findings),
+            )
+            continue
+        kept.append(item)
+
+    if dropped:
+        return "".join(kept).strip()
+
+    logger.warning(
+        "Memory provider '%s' prefetch blocked at load time: threat match(es): %s",
+        provider_name,
+        ", ".join(findings),
+    )
+    return ""
 
 
 class StreamingContextScrubber:
@@ -506,7 +587,9 @@ class MemoryManager:
             try:
                 result = provider.prefetch(clean_query, session_id=session_id)
                 if result and result.strip():
-                    parts.append(result)
+                    filtered = _filter_recalled_memory_context(provider.name, result)
+                    if filtered and filtered.strip():
+                        parts.append(filtered)
             except Exception as e:
                 logger.debug(
                     "Memory provider '%s' prefetch failed (non-fatal): %s",

@@ -63,7 +63,7 @@ _FILLER = r"(?:\w+\s+){0,8}"
 _PATTERNS: List[Tuple[str, str, str]] = [
     # ── Classic prompt injection (applies everywhere) ────────────────
     (rf'ignore\s+{_FILLER}(previous|all|above|prior)\s+{_FILLER}instructions', "prompt_injection", "all"),
-    (r'system\s+prompt\s+override', "sys_prompt_override", "all"),
+    (rf'system\s+{_FILLER}prompt\s+{_FILLER}override', "sys_prompt_override", "all"),
     (rf'disregard\s+{_FILLER}(your|all|any)\s+{_FILLER}(instructions|rules|guidelines)', "disregard_rules", "all"),
     (rf'act\s+as\s+(if|though)\s+{_FILLER}you\s+{_FILLER}(have\s+no|don\'t\s+have)\s+{_FILLER}(restrictions|limits|rules)', "bypass_restrictions", "all"),
     (r'<!--[^>]{0,512}(?:ignore|override|system|secret|hidden)[^>]{0,512}-->', "html_comment_injection", "all"),
@@ -74,6 +74,7 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     # ── Role-play / identity hijack (context + strict; common attack
     #    surface in scraped web content and poisoned context files) ──
     (rf'you\s+are\s+{_FILLER}now\s+(?:a|an|the)\s+', "role_hijack", "context"),
+    (rf'you\s+are\s+{_FILLER}now\s+', "role_hijack_strict", "strict"),
     (rf'pretend\s+{_FILLER}(you\s+are|to\s+be)\s+', "role_pretend", "context"),
     (rf'output\s+{_FILLER}(system|initial)\s+prompt', "leak_system_prompt", "context"),
     (rf'(respond|answer|reply)\s+without\s+{_FILLER}(restrictions|limitations|filters|safety)', "remove_filters", "context"),
@@ -82,6 +83,15 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     # via spec instead of jailbreak.  Anchored on the verb pair so it
     # doesn't match "name your variables" etc.
     (r'\bname\s+yourself\s+\w+', "identity_override", "context"),
+    # Strict-only social-engineering / jailbreak variants. These are too
+    # broad for scraped context/tool results, but skill installs and curated
+    # memory writes can block and ask the user to rewrite.
+    (r'(when|if)\s+no\s*one\s+is\s+(watching|looking)', "conditional_deception", "strict"),
+    (r'\bDAN\s+mode\b|Do\s+Anything\s+Now', "jailbreak_dan", "strict"),
+    (r'\bdeveloper\s+mode\b[^\n]{0,512}\benabled?\b', "jailbreak_dev_mode", "strict"),
+    (r'hypothetical\s+scenario[^\n]{0,512}(?:ignore|bypass|override)', "hypothetical_bypass", "strict"),
+    (r'for\s+educational\s+purposes?\s+only', "educational_pretext", "strict"),
+    (rf'\b(?:new\s+{_FILLER}policy|updated\s+{_FILLER}guidelines|revised\s+{_FILLER}instructions)', "fake_policy", "strict"),
 
     # ── C2 / Brainworm-style promptware (context scope) ──────────────
     # These anchor on C2-specific vocabulary.  "register as a node" appears
@@ -133,6 +143,41 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     # ── Hardcoded secrets ────────────────────────────────────────────
     (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\'][A-Za-z0-9+/=_-]{20,}', "hardcoded_secret", "strict"),
 ]
+
+PROMPT_INJECTION_PATTERN_IDS = frozenset({
+    "prompt_injection",
+    "sys_prompt_override",
+    "disregard_rules",
+    "bypass_restrictions",
+    "html_comment_injection",
+    "hidden_div",
+    "translate_execute",
+    "deception_hide",
+    "role_hijack",
+    "role_hijack_strict",
+    "role_pretend",
+    "leak_system_prompt",
+    "remove_filters",
+    "fake_update",
+    "identity_override",
+    "conditional_deception",
+    "jailbreak_dan",
+    "jailbreak_dev_mode",
+    "hypothetical_bypass",
+    "educational_pretext",
+    "fake_policy",
+    "c2_node_registration",
+    "c2_heartbeat",
+    "c2_task_pull",
+    "c2_network_connect",
+    "forced_action",
+    "anti_forensic_oneliner",
+    "anti_forensic_disk",
+    "env_var_unset_agent",
+    "known_c2_framework",
+    "c2_explicit",
+    "c2_explicit_long",
+})
 
 # Invisible / bidirectional unicode characters used in injection attacks.
 # Aligned with skills_guard.py INVISIBLE_CHARS — directional isolates
@@ -202,6 +247,32 @@ def _compile() -> None:
 
 
 _compile()
+
+
+def _scope_includes(pattern_scope: str, requested_scope: str) -> bool:
+    """Return whether a pattern with ``pattern_scope`` applies to ``requested_scope``."""
+    if pattern_scope == "all":
+        return requested_scope in {"all", "context", "strict"}
+    if pattern_scope == "context":
+        return requested_scope in {"context", "strict"}
+    if pattern_scope == "strict":
+        return requested_scope == "strict"
+    raise ValueError(f"threat_patterns: unknown scope {pattern_scope!r}")
+
+
+def iter_prompt_injection_patterns(scope: str = "strict") -> List[Tuple[str, str]]:
+    """Return raw prompt-injection regexes applicable to ``scope``.
+
+    This is the source-of-truth adapter for callers that need line-level
+    metadata around shared injection detections (notably skills_guard.py).
+    """
+    if scope not in {"all", "context", "strict"}:
+        raise ValueError(f"iter_prompt_injection_patterns: unknown scope {scope!r}")
+    return [
+        (pattern, pid)
+        for pattern, pid, pattern_scope in _PATTERNS
+        if pid in PROMPT_INJECTION_PATTERN_IDS and _scope_includes(pattern_scope, scope)
+    ]
 
 
 def scan_for_threats(content: str, scope: str = "context") -> List[str]:
@@ -279,6 +350,8 @@ def first_threat_message(content: str, scope: str = "strict") -> Optional[str]:
 __all__ = [
     "INVISIBLE_CHARS",
     "MAX_SCAN_CHARS",
+    "PROMPT_INJECTION_PATTERN_IDS",
+    "iter_prompt_injection_patterns",
     "scan_for_threats",
     "first_threat_message",
 ]

@@ -23,9 +23,9 @@ Forked verbatim from Anthropic's claude-plugins-official repository
   limitations under the License.
 
 Modifications by embreythecreator for the Seraphiel Brain plugin port:
-  - none to the pattern data itself; this file is byte-for-byte the upstream
-    patterns.py at commit 0bde168 (2026-05-26). Seraphiel-side wiring lives in
-    __init__.py.
+  - none to the pattern data itself; Seraphiel-side wiring lives in __init__.py.
+  - one local cross-reference comment; upstream pattern data remains unchanged
+    from commit 0bde168 (2026-05-26).
 """
 from enum import IntEnum
 
@@ -49,7 +49,8 @@ _UNSAFE_TORCH_LOAD_REMINDER = """⚠️ Security Warning: torch.load() defaults 
 
 If the file only contains tensors and simple data structures, pass weights_only=True (or set TORCH_FORCE_WEIGHTS_ONLY_LOAD=1)."""
 
-# Security patterns configuration
+# Security patterns configuration. Prompt-injection scanning is sourced from
+# tools/threat_patterns.py; these reminders guard tool-write/code risks.
 SECURITY_PATTERNS = [
     {
         "ruleName": "github_actions_workflow",

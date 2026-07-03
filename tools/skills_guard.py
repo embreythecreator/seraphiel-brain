@@ -30,6 +30,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple
 
+from tools.threat_patterns import (
+    INVISIBLE_CHARS,
+    iter_prompt_injection_patterns,
+)
+
 
 
 
@@ -93,7 +98,151 @@ class ScanResult:
 # Threat patterns — (regex, pattern_id, severity, category, description)
 # ---------------------------------------------------------------------------
 
-THREAT_PATTERNS = [
+# Prompt-injection regexes are imported from tools.threat_patterns.py, the
+# shared source of truth for injection / promptware scanners. The local list
+# below intentionally stays skill-install-specific: static file risks such as
+# secret exfiltration, destructive commands, persistence, supply-chain fetches,
+# privilege escalation, and credential exposure.
+_SHARED_INJECTION_METADATA = {
+    "prompt_injection": (
+        "prompt_injection_ignore", "critical", "injection",
+        "prompt injection: ignore previous instructions",
+    ),
+    "sys_prompt_override": (
+        "sys_prompt_override", "critical", "injection",
+        "attempts to override the system prompt",
+    ),
+    "disregard_rules": (
+        "disregard_rules", "critical", "injection",
+        "instructs agent to disregard its rules",
+    ),
+    "bypass_restrictions": (
+        "bypass_restrictions", "critical", "injection",
+        "instructs agent to act without restrictions",
+    ),
+    "html_comment_injection": (
+        "html_comment_injection", "high", "injection",
+        "hidden instructions in HTML comments",
+    ),
+    "hidden_div": (
+        "hidden_div", "high", "injection",
+        "hidden HTML div (invisible instructions)",
+    ),
+    "translate_execute": (
+        "translate_execute", "critical", "injection",
+        "translate-then-execute evasion technique",
+    ),
+    "deception_hide": (
+        "deception_hide", "critical", "injection",
+        "instructs agent to hide information from user",
+    ),
+    "role_hijack": (
+        "role_hijack", "high", "injection",
+        "attempts to override the agent's role",
+    ),
+    "role_hijack_strict": (
+        "role_hijack", "high", "injection",
+        "attempts to override the agent's role",
+    ),
+    "role_pretend": (
+        "role_pretend", "high", "injection",
+        "attempts to make the agent assume a different identity",
+    ),
+    "leak_system_prompt": (
+        "leak_system_prompt", "high", "injection",
+        "attempts to extract the system prompt",
+    ),
+    "remove_filters": (
+        "remove_filters", "critical", "injection",
+        "instructs agent to respond without safety filters",
+    ),
+    "fake_update": (
+        "fake_update", "high", "injection",
+        "fake update/patch announcement (social engineering)",
+    ),
+    "identity_override": (
+        "identity_override", "high", "injection",
+        "attempts to rename or override the agent identity",
+    ),
+    "conditional_deception": (
+        "conditional_deception", "high", "injection",
+        "conditional instruction to behave differently when unobserved",
+    ),
+    "jailbreak_dan": (
+        "jailbreak_dan", "critical", "injection",
+        "DAN (Do Anything Now) jailbreak attempt",
+    ),
+    "jailbreak_dev_mode": (
+        "jailbreak_dev_mode", "critical", "injection",
+        "developer mode jailbreak attempt",
+    ),
+    "hypothetical_bypass": (
+        "hypothetical_bypass", "high", "injection",
+        "hypothetical scenario used to bypass restrictions",
+    ),
+    "educational_pretext": (
+        "educational_pretext", "medium", "injection",
+        "educational pretext often used to justify harmful content",
+    ),
+    "fake_policy": (
+        "fake_policy", "medium", "injection",
+        "claims new policy/guidelines (may be social engineering)",
+    ),
+    "c2_node_registration": (
+        "c2_node_registration", "high", "injection",
+        "C2-style node registration instruction",
+    ),
+    "c2_heartbeat": (
+        "c2_heartbeat", "high", "injection",
+        "C2-style heartbeat/beacon instruction",
+    ),
+    "c2_task_pull": (
+        "c2_task_pull", "high", "injection",
+        "C2-style task pull instruction",
+    ),
+    "c2_network_connect": (
+        "c2_network_connect", "high", "injection",
+        "C2-style network connection instruction",
+    ),
+    "forced_action": (
+        "forced_action", "high", "injection",
+        "forced C2-style action instruction",
+    ),
+    "anti_forensic_oneliner": (
+        "anti_forensic_oneliner", "high", "injection",
+        "anti-forensic one-liner instruction",
+    ),
+    "anti_forensic_disk": (
+        "anti_forensic_disk", "high", "injection",
+        "anti-forensic disk-write avoidance instruction",
+    ),
+    "env_var_unset_agent": (
+        "env_var_unset_agent", "high", "injection",
+        "attempts to unset agent runtime environment variables",
+    ),
+    "known_c2_framework": (
+        "known_c2_framework", "high", "injection",
+        "references known C2 / offensive-security framework",
+    ),
+    "c2_explicit": (
+        "c2_explicit", "high", "injection",
+        "explicit C2 infrastructure reference",
+    ),
+    "c2_explicit_long": (
+        "c2_explicit_long", "high", "injection",
+        "explicit command-and-control reference",
+    ),
+}
+
+
+def _shared_prompt_injection_patterns() -> List[Tuple[str, str, str, str, str]]:
+    patterns = []
+    for pattern, shared_id in iter_prompt_injection_patterns(scope="strict"):
+        patterns.append((pattern, *_SHARED_INJECTION_METADATA[shared_id]))
+    return patterns
+
+
+SKILL_INSTALL_PATTERNS = [
     # ── Exfiltration: shell commands leaking secrets ──
     (r'curl\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)',
      "env_exfil_curl", "critical", "exfiltration",
@@ -183,44 +332,6 @@ THREAT_PATTERNS = [
     (r'\[.*\]\(https?://[^\)]*\$\{?',
      "md_link_exfil", "high", "exfiltration",
      "markdown link with variable interpolation"),
-
-    # ── Prompt injection ──
-    (r'ignore\s+(?:\w+\s+)*(previous|all|above|prior)\s+instructions',
-     "prompt_injection_ignore", "critical", "injection",
-     "prompt injection: ignore previous instructions"),
-    (r'you\s+are\s+(?:\w+\s+)*now\s+',
-     "role_hijack", "high", "injection",
-     "attempts to override the agent's role"),
-    (r'do\s+not\s+(?:\w+\s+)*tell\s+(?:\w+\s+)*the\s+user',
-     "deception_hide", "critical", "injection",
-     "instructs agent to hide information from user"),
-    (r'system\s+(?:\w+\s+)*prompt\s+(?:\w+\s+)*override',
-     "sys_prompt_override", "critical", "injection",
-     "attempts to override the system prompt"),
-    (r'pretend\s+(?:\w+\s+)*(you\s+are|to\s+be)\s+',
-     "role_pretend", "high", "injection",
-     "attempts to make the agent assume a different identity"),
-    (r'disregard\s+(?:\w+\s+)*(your|all|any)\s+(?:\w+\s+)*(instructions|rules|guidelines)',
-     "disregard_rules", "critical", "injection",
-     "instructs agent to disregard its rules"),
-    (r'output\s+(?:\w+\s+)*(system|initial)\s+prompt',
-     "leak_system_prompt", "high", "injection",
-     "attempts to extract the system prompt"),
-    (r'(when|if)\s+no\s*one\s+is\s+(watching|looking)',
-     "conditional_deception", "high", "injection",
-     "conditional instruction to behave differently when unobserved"),
-    (r'act\s+as\s+(if|though)\s+(?:\w+\s+)*you\s+(?:\w+\s+)*(have\s+no|don\'t\s+have)\s+(?:\w+\s+)*(restrictions|limits|rules)',
-     "bypass_restrictions", "critical", "injection",
-     "instructs agent to act without restrictions"),
-    (r'translate\s+.*\s+into\s+.*\s+and\s+(execute|run|eval)',
-     "translate_execute", "critical", "injection",
-     "translate-then-execute evasion technique"),
-    (r'<!--[^>]*(?:ignore|override|system|secret|hidden)[^>]*-->',
-     "html_comment_injection", "high", "injection",
-     "hidden instructions in HTML comments"),
-    (r'<\s*div\s+style\s*=\s*["\'][\s\S]*?display\s*:\s*none',
-     "hidden_div", "high", "injection",
-     "hidden HTML div (invisible instructions)"),
 
     # ── Destructive operations ──
     (r'rm\s+-rf\s+/',
@@ -483,29 +594,6 @@ THREAT_PATTERNS = [
      "aws_access_key_leaked", "critical", "credential_exposure",
      "AWS access key ID in skill content"),
 
-    # ── Additional prompt injection: jailbreak patterns ──
-    (r'\bDAN\s+mode\b|Do\s+Anything\s+Now',
-     "jailbreak_dan", "critical", "injection",
-     "DAN (Do Anything Now) jailbreak attempt"),
-    (r'\bdeveloper\s+mode\b.*\benabled?\b',
-     "jailbreak_dev_mode", "critical", "injection",
-     "developer mode jailbreak attempt"),
-    (r'hypothetical\s+scenario.*(?:ignore|bypass|override)',
-     "hypothetical_bypass", "high", "injection",
-     "hypothetical scenario used to bypass restrictions"),
-    (r'for\s+educational\s+purposes?\s+only',
-     "educational_pretext", "medium", "injection",
-     "educational pretext often used to justify harmful content"),
-    (r'(respond|answer|reply)\s+without\s+(?:\w+\s+)*(restrictions|limitations|filters|safety)',
-     "remove_filters", "critical", "injection",
-     "instructs agent to respond without safety filters"),
-    (r'you\s+have\s+been\s+(?:\w+\s+)*(updated|upgraded|patched)\s+to',
-     "fake_update", "high", "injection",
-     "fake update/patch announcement (social engineering)"),
-    (r'new\s+(?:\w+\s+)*policy|updated\s+(?:\w+\s+)*guidelines|revised\s+(?:\w+\s+)*instructions',
-     "fake_policy", "medium", "injection",
-     "claims new policy/guidelines (may be social engineering)"),
-
     # ── Context window exfiltration ──
     (r'(include|output|print|send|share)\s+(?:\w+\s+)*(conversation|chat\s+history|previous\s+messages|context)',
      "context_exfil", "high", "exfiltration",
@@ -514,6 +602,8 @@ THREAT_PATTERNS = [
      "send_to_url", "high", "exfiltration",
      "instructs agent to send data to a URL"),
 ]
+
+THREAT_PATTERNS = _shared_prompt_injection_patterns() + SKILL_INSTALL_PATTERNS
 
 # Structural limits for skill directories
 MAX_FILE_COUNT = 50       # skills shouldn't have 50+ files
@@ -532,28 +622,6 @@ SUSPICIOUS_BINARY_EXTENSIONS = {
     '.exe', '.dll', '.so', '.dylib', '.bin', '.dat', '.com',
     '.msi', '.dmg', '.app', '.deb', '.rpm',
 }
-
-# Zero-width and invisible unicode characters used for injection
-INVISIBLE_CHARS = {
-    '\u200b',  # zero-width space
-    '\u200c',  # zero-width non-joiner
-    '\u200d',  # zero-width joiner
-    '\u2060',  # word joiner
-    '\u2062',  # invisible times
-    '\u2063',  # invisible separator
-    '\u2064',  # invisible plus
-    '\ufeff',  # zero-width no-break space (BOM)
-    '\u202a',  # left-to-right embedding
-    '\u202b',  # right-to-left embedding
-    '\u202c',  # pop directional formatting
-    '\u202d',  # left-to-right override
-    '\u202e',  # right-to-left override
-    '\u2066',  # left-to-right isolate
-    '\u2067',  # right-to-left isolate
-    '\u2068',  # first strong isolate
-    '\u2069',  # pop directional isolate
-}
-
 
 # ---------------------------------------------------------------------------
 # Scanning functions
