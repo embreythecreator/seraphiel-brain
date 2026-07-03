@@ -57,19 +57,19 @@ What tools do you have available?
 ### CLI 麦克风 + 播放
 
 ```bash
-pip install "seraphiel-brain[voice]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[voice]"
 ```
 
 ### 消息平台
 
 ```bash
-pip install "seraphiel-brain[messaging]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[messaging]"
 ```
 
 ### 高级 ElevenLabs TTS
 
 ```bash
-pip install "seraphiel-brain[tts-premium]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[tts-premium]"
 ```
 
 ### 本地 NeuTTS（可选）
@@ -81,7 +81,7 @@ python -m pip install -U neutts[all]
 ### 全部安装
 
 ```bash
-pip install "seraphiel-brain[all]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[all]"
 ```
 
 ## 第三步：安装系统依赖

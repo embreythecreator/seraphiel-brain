@@ -9,10 +9,10 @@ guide: [`docs/absorb-harness.md`](docs/absorb-harness.md).
 
 | | value |
 |---|---|
-| Current tree corresponds to | **Hermes v0.17.0** |
-| Upstream tag | `v2026.6.19` |
-| Upstream commit | `2bd1977d8` |
-| Our version (independent line) | `0.17.0` (pyproject.toml — source of truth) |
+| Current tree corresponds to | **Hermes v0.19.0** |
+| Upstream tag | `v2026.7.1` |
+| Upstream commit | `7c1a02955` |
+| Our version (independent line) | `0.19.0` (pyproject.toml — source of truth) |
 
 `upstream` remote is configured locally (`NousResearch/hermes-agent`), pushed nowhere,
 invisible to public clones of this repo.

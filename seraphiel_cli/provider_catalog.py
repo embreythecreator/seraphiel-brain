@@ -57,7 +57,7 @@ _ACCOUNTS_AUTH_TYPES: frozenset[str] = frozenset(
 class ProviderDescriptor:
     """One provider, as seen by every surface (CLI picker + both GUI tabs)."""
 
-    slug: str                      # canonical id, e.g. "google-gemini-cli"
+    slug: str                      # canonical id, e.g. "openai-codex"
     label: str                     # human display name
     description: str               # one-line description
     auth_type: str                 # api_key | oauth_* | external_process | copilot | aws_sdk
@@ -111,16 +111,27 @@ def provider_catalog() -> list[ProviderDescriptor]:
     except Exception:
         OPTIONAL_ENV_VARS = {}
 
+    # Seraphiel overlays carry auth_type for providers that have no registry/profile
+    # entry of their own — notably the ``moa`` virtual provider (auth_type
+    # "virtual"), which has no real credential and no network endpoint.
+    try:
+        from seraphiel_cli.providers import SERAPHIEL_OVERLAYS
+    except Exception:
+        SERAPHIEL_OVERLAYS = {}
+
     out: list[ProviderDescriptor] = []
     for order, entry in enumerate(CANONICAL_PROVIDERS):
         slug = entry.slug
         cfg = PROVIDER_REGISTRY.get(slug)
         prof = profiles.get(slug)
+        overlay = SERAPHIEL_OVERLAYS.get(slug)
 
-        # auth_type: registry is authoritative; fall back to profile, then api_key.
+        # auth_type: registry is authoritative; fall back to profile, then the
+        # Seraphiel overlay (e.g. moa → "virtual"), then api_key.
         auth_type = (
             (getattr(cfg, "auth_type", "") if cfg else "")
             or (getattr(prof, "auth_type", "") if prof else "")
+            or (getattr(overlay, "auth_type", "") if overlay else "")
             or "api_key"
         )
 

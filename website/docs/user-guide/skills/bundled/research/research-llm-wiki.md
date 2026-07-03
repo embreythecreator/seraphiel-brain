@@ -52,7 +52,7 @@ Use this skill when the user:
 
 ## Wiki Location
 
-**Location:** Set via `WIKI_PATH` environment variable (e.g. in `~/.seraphiel/.env`).
+**Location:** Set via `WIKI_PATH` environment variable (e.g. in `${SERAPHIEL_HOME:-~/.seraphiel}/.env`).
 
 If unset, defaults to `~/wiki`.
 

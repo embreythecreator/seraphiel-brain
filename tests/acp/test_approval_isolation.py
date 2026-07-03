@@ -241,3 +241,46 @@ class TestAcpExecAskGate:
             "GHSA-96vc-wcxf-jjff"
         )
         assert result["approved"] is True
+
+    def test_interactive_context_var_routes_to_callback_without_env(
+        self, monkeypatch,
+    ):
+        """Context-local interactive flag must work without touching os.environ.
+
+        Concurrent ACP sessions run on a shared ThreadPoolExecutor, so the
+        interactive flag is now a contextvar instead of a process-global env
+        var — one session can no longer clobber another's flag mid-run
+        (GHSA-96vc-wcxf-jjff).
+        """
+        monkeypatch.delenv("SERAPHIEL_INTERACTIVE", raising=False)
+        monkeypatch.delenv("SERAPHIEL_GATEWAY_SESSION", raising=False)
+        monkeypatch.delenv("SERAPHIEL_EXEC_ASK", raising=False)
+        monkeypatch.delenv("SERAPHIEL_YOLO_MODE", raising=False)
+
+        from tools.approval import (
+            check_all_command_guards,
+            reset_seraphiel_interactive_context,
+            set_seraphiel_interactive_context,
+        )
+
+        called_with = []
+
+        def fake_cb(command, description, *, allow_permanent=True):
+            called_with.append((command, description))
+            return "once"
+
+        tok = set_seraphiel_interactive_context(True)
+        try:
+            result = check_all_command_guards(
+                "rm -rf /tmp/test-context-interactive",
+                "local",
+                approval_callback=fake_cb,
+            )
+        finally:
+            reset_seraphiel_interactive_context(tok)
+
+        assert called_with, (
+            "set_seraphiel_interactive_context(True) should route dangerous "
+            "commands through the callback without SERAPHIEL_INTERACTIVE in env"
+        )
+        assert result["approved"] is True

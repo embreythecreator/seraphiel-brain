@@ -14,7 +14,7 @@ If you want a practical setup walkthrough with recommended configurations and re
 
 Before using voice features, make sure you have:
 
-1. **Seraphiel Brain installed** — `pip install seraphiel-brain` (see [Installation](/getting-started/installation))
+1. **Seraphiel Brain installed** — via the install script (see [Installation](/getting-started/installation))
 2. **An LLM provider configured** — run `seraphiel model` or set your preferred provider credentials in `~/.seraphiel/.env`
 3. **A working base setup** — run `seraphiel` to verify the agent responds to text before enabling voice
 
@@ -40,19 +40,19 @@ A paid [Nous Portal](/user-guide/features/tool-gateway) subscription supplies th
 
 ```bash
 # CLI voice mode (microphone + audio playback)
-pip install "seraphiel-brain[voice]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[voice]"
 
 # Discord + Telegram messaging (includes discord.py[voice] for VC support)
-pip install "seraphiel-brain[messaging]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[messaging]"
 
 # Premium TTS (ElevenLabs)
-pip install "seraphiel-brain[tts-premium]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[tts-premium]"
 
 # Local TTS (NeuTTS, optional)
 python -m pip install -U neutts[all]
 
 # Everything at once
-pip install "seraphiel-brain[all]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[all]"
 ```
 
 | Extra | Packages | Required For |

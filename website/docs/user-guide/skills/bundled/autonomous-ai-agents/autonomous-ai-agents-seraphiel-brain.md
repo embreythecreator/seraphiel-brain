@@ -343,7 +343,6 @@ The registry of record is `seraphiel_cli/commands.py` — every consumer
 /commands [page]     Browse all commands (gateway)
 /usage               Token usage
 /insights [days]     Usage analytics
-/gquota              Show Google Gemini Code Assist quota usage (CLI)
 /status              Session info (gateway)
 /profile             Active profile info
 /debug               Upload debug report (system info + logs) and get shareable links
@@ -360,7 +359,7 @@ The registry of record is `seraphiel_cli/commands.py` — every consumer
 
 ```
 ~/.seraphiel/config.yaml       Main configuration
-~/.seraphiel/.env              API keys and secrets
+~/.seraphiel/.env              API keys and secrets (under $SERAPHIEL_HOME if set)
 $SERAPHIEL_HOME/skills/        Installed skills
 ~/.seraphiel/sessions/         Gateway routing index, request dumps, *.jsonl transcripts (and optional per-session JSON snapshots when sessions.write_json_snapshots: true)
 ~/.seraphiel/state.db          Canonical session store (SQLite + FTS5)
@@ -377,7 +376,7 @@ Edit with `seraphiel config edit` or `seraphiel config set section.key value`.
 
 | Section | Key options |
 |---------|-------------|
-| `model` | `default`, `provider`, `base_url`, `api_key`, `context_length` |
+| `model` | `default`, `provider`, `base_url`, `api_key`, `context_length` (explicit override; clear to `""` for auto-detect from server `/v1/models`) |
 | `agent` | `max_turns` (90), `tool_use_enforcement` |
 | `terminal` | `backend` (local/docker/ssh/modal), `cwd`, `timeout` (180) |
 | `compression` | `enabled`, `threshold` (0.50), `target_ratio` (0.20) |
@@ -456,7 +455,6 @@ Enable/disable via `seraphiel tools` (interactive) or `seraphiel tools enable/di
 | `feishu_drive` | Feishu (Lark) drive tools |
 | `yuanbao` | Yuanbao integration tools |
 | `rl` | Reinforcement learning tools (off by default) |
-| `moa` | Mixture of Agents (off by default) |
 
 Full enumeration lives in `toolsets.py` as the `TOOLSETS` dict; `_SERAPHIEL_CORE_TOOLS` is the default bundle most platforms inherit from.
 
@@ -649,7 +647,7 @@ here; full developer notes live in `AGENTS.md`, user-facing docs under
 Synchronous subagent spawn — the parent waits for the child's summary
 before continuing its own loop. Isolated context + terminal session.
 
-- **Single:** `delegate_task(goal, context, toolsets)`.
+- **Single:** `delegate_task(goal, context)`.
 - **Batch:** `delegate_task(tasks=[{goal, ...}, ...])` runs children in
   parallel, capped by `delegation.max_concurrent_children` (default 3).
 - **Roles:** `leaf` (default; cannot re-delegate) vs `orchestrator`
@@ -875,6 +873,22 @@ seraphiel config set auxiliary.vision.model <model_name>
 ```
 
 ---
+### Context window shows wrong size
+
+If Seraphiel reports a smaller context window than your local model supports
+(e.g., 128k when llama-server has `-c 262144`):
+
+**Check if `model.context_length` is explicitly set.** Seraphiel uses a
+multi-source resolution chain (highest priority first):
+
+1. `model.context_length` in config.yaml — **blocks auto-detection if set**
+2. Custom provider per-model setting
+3. Persistent cache (survives restarts)
+4. `/v1/models` endpoint from your server — auto-detected when nothing
+   above overrides it
+
+**Fix:** Clear the override so auto-detection falls through:
+
 
 ## Where to Find Things
 
@@ -927,7 +941,7 @@ seraphiel-brain/
 ```
 <!-- ascii-guard-ignore-end -->
 
-Config: `~/.seraphiel/config.yaml` (settings), `~/.seraphiel/.env` (API keys).
+Config: `~/.seraphiel/config.yaml` (settings), `~/.seraphiel/.env` (API keys) — both under `$SERAPHIEL_HOME` when it is set.
 
 ### Adding a Tool (3 files)
 

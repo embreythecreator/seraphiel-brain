@@ -8,6 +8,11 @@ description: "Install Seraphiel Brain on Linux, macOS, WSL2, native Windows, or 
 
 Get Seraphiel Brain up and running in under two minutes!
 
+:::tip Platform Support
+For the full platform support matrix (which OSes, distribution methods, and
+platform-gated features are supported), see **[Platform Support](./platform-support.md)**.
+:::
+
 ## Quick Install
 ### With the Seraphiel Desktop installer on macOS or Windows (recommended)
 To easily install the command-line and desktop applications, [download the Seraphiel Desktop installer](https://seraphiel-brain.embreythecreator.com/) from our website and run it.
@@ -40,11 +45,10 @@ The installer handles everything automatically — all dependencies (Python, Nod
 
 Where the installer puts things depends on whether you're installing as a normal user or as root:
 
-| Installer | Code lives at | `seraphiel` binary | Data directory |
-|---|---|---|---|
-| pip install | Python site-packages | `~/.local/bin/seraphiel` (console_scripts) | `~/.seraphiel/` |
-| Per-user (git installer) | `~/.seraphiel/seraphiel-brain/` | `~/.local/bin/seraphiel` (symlink) | `~/.seraphiel/` |
-| Root-mode (`sudo curl … \| sudo bash`) | `/usr/local/lib/seraphiel-brain/` | `/usr/local/bin/seraphiel` | `/root/.seraphiel/` (or `$SERAPHIEL_HOME`) |
+| Installer                              | Code lives at                  | `seraphiel` binary                         | Data directory                       |
+| -------------------------------------- | ------------------------------ | --------------------------------------- | ------------------------------------ |
+| Per-user (git installer)               | `~/.seraphiel/seraphiel-brain/`      | `~/.local/bin/seraphiel` (symlink)         | `~/.seraphiel/`                         |
+| Root-mode (`sudo curl … \| sudo bash`) | `/usr/local/lib/seraphiel-brain/` | `/usr/local/bin/seraphiel`                 | `/root/.seraphiel/` (or `$SERAPHIEL_HOME`) |
 
 The root-mode **FHS layout** (`/usr/local/lib/…`, `/usr/local/bin/seraphiel`) matches where other system-wide developer tools land on Linux. It's useful for shared-machine deployments where one system install should serve every user. Per-user config (auth, skills, sessions) still lives under each user's `~/.seraphiel/` or explicit `SERAPHIEL_HOME`.
 
@@ -81,7 +85,7 @@ That logs you in, sets Nous as your provider, and turns on the Tool Gateway in o
 
 ## Prerequisites
 
-**Installer:** On non-Windows platforms, the only prerequisite is **Git**. The installer automatically handles everything else:
+**Installer:** On non-Windows platforms, the only prerequisite is **Git**. On Linux, also make sure `curl` and `xz-utils` are available (the installer downloads Node.js as a `.tar.xz` archive). The desktop app additionally requires `g++` (or `build-essential` on Debian/Ubuntu) to compile native modules. The installer automatically handles everything else:
 
 - **uv** (fast Python package manager)
 - **Python 3.11** (via uv, no sudo needed)
@@ -90,11 +94,11 @@ That logs you in, sets Nous as your provider, and turns on the Tool Gateway in o
 - **ffmpeg** (audio format conversion for TTS)
 
 :::info
-You do **not** need to install Python, Node.js, ripgrep, or ffmpeg manually. The installer detects what's missing and installs it for you. Just make sure `git` is available (`git --version`).
+You do **not** need to install Python, Node.js, ripgrep, or ffmpeg manually. The installer detects what's missing and installs it for you. Just make sure `git` is available (`git --version`). On Linux, ensure `curl` and `xz-utils` are installed (`sudo apt install curl xz-utils` on Debian/Ubuntu). For the desktop app, also install `build-essential` (`sudo apt install build-essential`).
 :::
 
 :::tip Nix users
-If you use Nix (on NixOS, macOS, or Linux), there's a dedicated setup path with a Nix flake, declarative NixOS module, and optional container mode. See the **[Nix & NixOS Setup](./nix-setup.md)** guide.
+Nix is **no longer an explicitly supported install path** (best-effort only). If you already use Nix (on NixOS, macOS, or Linux), there's a dedicated setup path with a Nix flake, declarative NixOS module, and optional container mode. See the **[Nix & NixOS Setup](./nix-setup.md)** guide.
 :::
 
 ---

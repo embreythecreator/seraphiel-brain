@@ -179,7 +179,13 @@ function downloadInstallScript(commit, destPath) {
   })
 }
 
-async function resolveInstallScript({ installStamp, sourceRepoRoot, seraphielHome, emit, _download = downloadInstallScript }) {
+async function resolveInstallScript({
+  installStamp,
+  sourceRepoRoot,
+  seraphielHome,
+  emit,
+  _download = downloadInstallScript
+}) {
   // 1. Dev shortcut: prefer a local checkout's installer so we can iterate
   //    without pushing. SOURCE_REPO_ROOT comes from main.cjs (path.resolve
   //    of APP_ROOT/../..).
@@ -293,15 +299,19 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, serap
     const ps = process.platform === 'win32' ? resolveWindowsPowerShell() : 'pwsh'
     const fullArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
 
-    const child = spawn(ps, fullArgs, hiddenWindowsChildOptions({
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        // Pass SERAPHIEL_HOME through so install.ps1 respects the caller's
-        // choice rather than re-computing the default.
-        SERAPHIEL_HOME: seraphielHome || process.env.SERAPHIEL_HOME || ''
-      }
-    }))
+    const child = spawn(
+      ps,
+      fullArgs,
+      hiddenWindowsChildOptions({
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          // Pass SERAPHIEL_HOME through so install.ps1 respects the caller's
+          // choice rather than re-computing the default.
+          SERAPHIEL_HOME: seraphielHome || process.env.SERAPHIEL_HOME || ''
+        }
+      })
+    )
 
     let stdout = ''
     let stderr = ''

@@ -127,7 +127,7 @@ A nightly backlog triage on Sonnet costs roughly $0.02-0.05. A monitoring check 
 Seraphiel Brain is open source and free. The automation infrastructure — cron scheduler, webhook platform, skill system, multi-platform delivery — is built in.
 
 ```bash
-pip install seraphiel-brain
+curl -fsSL https://seraphiel-brain.embreythecreator.com/install.sh | bash
 seraphiel setup
 ```
 

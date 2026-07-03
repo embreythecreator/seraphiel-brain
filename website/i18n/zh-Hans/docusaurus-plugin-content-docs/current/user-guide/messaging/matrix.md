@@ -246,7 +246,7 @@ E2EE 需要带有加密扩展的 `mautrix` 库以及 `libolm` C 库：
 pip install 'mautrix[encryption]'
 
 # 或通过 seraphiel extras 安装
-pip install 'seraphiel-brain[matrix]'
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[matrix]"
 ```
 
 你还需要在系统上安装 `libolm`：
@@ -427,7 +427,7 @@ pip install 'mautrix[encryption]'
 或通过 Seraphiel extras：
 
 ```bash
-pip install 'seraphiel-brain[matrix]'
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[matrix]"
 ```
 
 ### 加密错误/"无法解密事件"
@@ -589,7 +589,7 @@ services:
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y libolm-dev && rm -rf /var/lib/apt/lists/*
-RUN pip install 'seraphiel-brain[matrix]'
+RUN cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[matrix]"
 
 CMD ["seraphiel", "gateway"]
 ```

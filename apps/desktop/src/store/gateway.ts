@@ -1,8 +1,7 @@
-import type { ConnectionState, GatewayEvent } from '@seraphiel/shared'
+import { type ConnectionState, type GatewayEvent, resolveGatewayWsUrl } from '@seraphiel/shared'
 import { atom } from 'nanostores'
 
 import { SeraphielGateway } from '@/seraphiel'
-import { resolveGatewayWsUrl } from '@/lib/gateway-ws-url'
 import { setGatewayState } from '@/store/session'
 
 // ── Multi-profile gateway routing ──────────────────────────────────────────

@@ -22,10 +22,21 @@ except ImportError:                    # direct-script fallback
 
 # Legal carve-outs keep upstream attribution; UPSTREAM_BASE.md references upstream
 # by name on purpose; the absorb harness itself defines the tokens it rewrites
-# (both its legacy script home and its packaged home).
+# (both its legacy script home and its packaged home). The harness's own docs,
+# skill, and tests name the upstream deliberately — carve them out by exact
+# path (or narrow prefix), never by broad directory: a wide entry would mask
+# real branding leaks. New absorb docs that trip the gate get added here
+# consciously, one line each.
 ALLOWED_STRAY = ("achievements/LICENSE", "security-guidance/NOTICE",
                  "UPSTREAM_BASE.md", "CHANGELOG.md", "scripts/absorb/",
-                 "seraphiel_cli/absorb/")
+                 "seraphiel_cli/absorb/",
+                 "docs/HANDOFF-self-absorb.md",
+                 "docs/absorb-harness.md",
+                 "docs/plans/2026-06-29-seraphiel-self-absorb.md",
+                 "docs/plans/2026-07-02-brain-absorb-v2.md",
+                 "docs/specs/2026-06-29-seraphiel-self-absorb-design.md",
+                 "skills/software-development/absorb-upstream/",
+                 "tests/seraphiel_cli/test_absorb_")
 CONFLICT_MARK = b"<<<<<<<"
 
 

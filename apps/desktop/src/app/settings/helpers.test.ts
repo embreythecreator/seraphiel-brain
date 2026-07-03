@@ -132,9 +132,9 @@ describe('settings helpers', () => {
       // KIMI_CN_ likewise must beat KIMI_.
       expect(providerGroup('KIMI_CN_API_KEY')).toBe('Kimi (China)')
       expect(providerGroup('KIMI_API_KEY')).toBe('Kimi / Moonshot')
-      // SERAPHIEL_QWEN_ and SERAPHIEL_GEMINI_ both share the SERAPHIEL_ stem.
+      // SERAPHIEL_QWEN_ shares the SERAPHIEL_ stem with other integrations.
       expect(providerGroup('SERAPHIEL_QWEN_BASE_URL')).toBe('DashScope (Qwen)')
-      expect(providerGroup('SERAPHIEL_GEMINI_CLIENT_ID')).toBe('Gemini')
+      expect(providerGroup('GEMINI_API_KEY')).toBe('Gemini')
     })
 
     it('falls back to "Other" for un-grouped env vars', () => {

@@ -2,7 +2,7 @@
 
 > **Bundled with Seraphiel Brain.** Originally authored by [@PCinkusz](https://github.com/PCinkusz) at https://github.com/PCinkusz/seraphiel-achievements — vendored into `plugins/seraphiel-achievements/` so it ships with the dashboard out-of-the-box and stays in lockstep with Seraphiel feature changes. Upstream repo remains the staging ground for new badges and UI iteration.
 >
-> When Seraphiel is installed via `pip install seraphiel-brain` or cloned from source, this plugin auto-registers as a dashboard tab on first `seraphiel dashboard` launch. No separate install step. See [Built-in Plugins → seraphiel-achievements](../../website/docs/user-guide/features/built-in-plugins.md) in the main docs.
+> When Seraphiel is installed via the install script or cloned from source, this plugin auto-registers as a dashboard tab on first `seraphiel dashboard` launch. No separate install step. See [Built-in Plugins → seraphiel-achievements](../../website/docs/user-guide/features/built-in-plugins.md) in the main docs.
 
 Achievement system for the Seraphiel Dashboard: collectible, tiered badges generated from real local Seraphiel session history.
 

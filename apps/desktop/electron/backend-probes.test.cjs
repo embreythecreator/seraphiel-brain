@@ -11,7 +11,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
-const { canImportSeraphielCli, verifySeraphielCli } = require('./backend-probes.cjs')
+const { canImportSeraphielCli, seraphielRuntimeImportProbe, verifySeraphielCli } = require('./backend-probes.cjs')
 
 // Resolve the host's own Node binary -- guaranteed to be on disk and
 // runnable. We use it as both a stand-in for "a python that doesn't
@@ -38,6 +38,12 @@ test('canImportSeraphielCli returns false when interpreter cannot run -c', () =>
 test('canImportSeraphielCli returns false when binary does not exist', () => {
   const ghost = path.join(os.tmpdir(), 'seraphiel-probes-ghost-' + Date.now() + '.exe')
   assert.equal(canImportSeraphielCli(ghost), false)
+})
+
+test('seraphiel runtime import probe checks config dependencies', () => {
+  const probe = seraphielRuntimeImportProbe()
+  assert.match(probe, /\bimport yaml\b/)
+  assert.match(probe, /\bimport seraphiel_cli\.config\b/)
 })
 
 test('verifySeraphielCli returns false when command is falsy', () => {

@@ -77,6 +77,19 @@ pub fn installer_dest() -> PathBuf {
     seraphiel_home().join(name)
 }
 
+/// Marker the updater writes for the duration of an in-app update and removes
+/// when it finishes (see update.rs `UpdateMarkerGuard`). A freshly-launched
+/// desktop checks this before spawning its own local backend: spawning one
+/// mid-update re-locks the venv shim and triggers `force_kill_other_seraphiel`,
+/// which then kills that legitimate backend in a respawn loop (#50238).
+///
+/// Lives directly under SERAPHIEL_HOME (same rationale as `installer_dest`) so the
+/// Electron desktop — which resolves SERAPHIEL_HOME identically and pins it into
+/// the updater's env — agrees on the exact path.
+pub fn update_in_progress_marker() -> PathBuf {
+    seraphiel_home().join(".seraphiel-update-in-progress")
+}
+
 /// Copy the currently-running installer binary to `installer_dest()` so it's
 /// available for future `--update` runs and shortcut launches.
 ///

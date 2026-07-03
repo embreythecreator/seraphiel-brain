@@ -7,6 +7,32 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
   getGatewayWsUrl: profile => ipcRenderer.invoke('seraphiel:gateway:ws-url', profile),
   openSessionWindow: (sessionId, opts) => ipcRenderer.invoke('seraphiel:window:openSession', sessionId, opts),
   openNewSessionWindow: () => ipcRenderer.invoke('seraphiel:window:openNewSession'),
+  petOverlay: {
+    // Main renderer → main process: window lifecycle + drag. `request` is
+    // `{ bounds, screen }`; resolves with the screen bounds it actually used.
+    open: request => ipcRenderer.invoke('seraphiel:pet-overlay:open', request),
+    close: () => ipcRenderer.invoke('seraphiel:pet-overlay:close'),
+    setBounds: bounds => ipcRenderer.send('seraphiel:pet-overlay:set-bounds', bounds),
+    setIgnoreMouse: ignore => ipcRenderer.send('seraphiel:pet-overlay:ignore-mouse', ignore),
+    // Flip the overlay focusable (and focus it) while the composer needs keys.
+    setFocusable: focusable => ipcRenderer.send('seraphiel:pet-overlay:set-focusable', focusable),
+    // Main renderer → overlay (forwarded by main): push the latest pet state.
+    pushState: payload => ipcRenderer.send('seraphiel:pet-overlay:state', payload),
+    // Overlay → main renderer (forwarded by main): pop back in / composer submit.
+    control: payload => ipcRenderer.send('seraphiel:pet-overlay:control', payload),
+    // Overlay subscribes to state pushes.
+    onState: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('seraphiel:pet-overlay:state', listener)
+      return () => ipcRenderer.removeListener('seraphiel:pet-overlay:state', listener)
+    },
+    // Main renderer subscribes to overlay control messages.
+    onControl: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('seraphiel:pet-overlay:control', listener)
+      return () => ipcRenderer.removeListener('seraphiel:pet-overlay:control', listener)
+    }
+  },
   getBootProgress: () => ipcRenderer.invoke('seraphiel:boot-progress:get'),
   getConnectionConfig: profile => ipcRenderer.invoke('seraphiel:connection-config:get', profile),
   saveConnectionConfig: payload => ipcRenderer.invoke('seraphiel:connection-config:save', payload),
@@ -44,6 +70,7 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
   setTranslucency: payload => ipcRenderer.send('seraphiel:translucency', payload),
   setPreviewShortcutActive: active => ipcRenderer.send('seraphiel:previewShortcutActive', Boolean(active)),
   openExternal: url => ipcRenderer.invoke('seraphiel:openExternal', url),
+  openPreviewInBrowser: url => ipcRenderer.invoke('seraphiel:openPreviewInBrowser', url),
   fetchLinkTitle: url => ipcRenderer.invoke('seraphiel:fetchLinkTitle', url),
   sanitizeWorkspaceCwd: cwd => ipcRenderer.invoke('seraphiel:workspace:sanitize', cwd),
   settings: {
@@ -55,7 +82,35 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
   getRecentLogs: () => ipcRenderer.invoke('seraphiel:logs:recent'),
   readDir: dirPath => ipcRenderer.invoke('seraphiel:fs:readDir', dirPath),
   gitRoot: startPath => ipcRenderer.invoke('seraphiel:fs:gitRoot', startPath),
-  worktrees: cwds => ipcRenderer.invoke('seraphiel:fs:worktrees', cwds),
+  revealPath: targetPath => ipcRenderer.invoke('seraphiel:fs:reveal', targetPath),
+  renamePath: (targetPath, newName) => ipcRenderer.invoke('seraphiel:fs:rename', targetPath, newName),
+  writeTextFile: (filePath, content) => ipcRenderer.invoke('seraphiel:fs:writeText', filePath, content),
+  trashPath: targetPath => ipcRenderer.invoke('seraphiel:fs:trash', targetPath),
+  git: {
+    worktreeList: repoPath => ipcRenderer.invoke('seraphiel:git:worktreeList', repoPath),
+    worktreeAdd: (repoPath, options) => ipcRenderer.invoke('seraphiel:git:worktreeAdd', repoPath, options),
+    worktreeRemove: (repoPath, worktreePath, options) =>
+      ipcRenderer.invoke('seraphiel:git:worktreeRemove', repoPath, worktreePath, options),
+    branchSwitch: (repoPath, branch) => ipcRenderer.invoke('seraphiel:git:branchSwitch', repoPath, branch),
+    branchList: repoPath => ipcRenderer.invoke('seraphiel:git:branchList', repoPath),
+    repoStatus: repoPath => ipcRenderer.invoke('seraphiel:git:repoStatus', repoPath),
+    fileDiff: (repoPath, filePath) => ipcRenderer.invoke('seraphiel:git:fileDiff', repoPath, filePath),
+    scanRepos: (roots, options) => ipcRenderer.invoke('seraphiel:git:scanRepos', roots, options),
+    review: {
+      list: (repoPath, scope, baseRef) => ipcRenderer.invoke('seraphiel:git:review:list', repoPath, scope, baseRef),
+      diff: (repoPath, filePath, scope, baseRef, staged) =>
+        ipcRenderer.invoke('seraphiel:git:review:diff', repoPath, filePath, scope, baseRef, staged),
+      stage: (repoPath, filePath) => ipcRenderer.invoke('seraphiel:git:review:stage', repoPath, filePath),
+      unstage: (repoPath, filePath) => ipcRenderer.invoke('seraphiel:git:review:unstage', repoPath, filePath),
+      revert: (repoPath, filePath) => ipcRenderer.invoke('seraphiel:git:review:revert', repoPath, filePath),
+      revParse: (repoPath, ref) => ipcRenderer.invoke('seraphiel:git:review:revParse', repoPath, ref),
+      commit: (repoPath, message, push) => ipcRenderer.invoke('seraphiel:git:review:commit', repoPath, message, push),
+      commitContext: repoPath => ipcRenderer.invoke('seraphiel:git:review:commitContext', repoPath),
+      push: repoPath => ipcRenderer.invoke('seraphiel:git:review:push', repoPath),
+      shipInfo: repoPath => ipcRenderer.invoke('seraphiel:git:review:shipInfo', repoPath),
+      createPr: repoPath => ipcRenderer.invoke('seraphiel:git:review:createPr', repoPath)
+    }
+  },
   terminal: {
     dispose: id => ipcRenderer.invoke('seraphiel:terminal:dispose', id),
     resize: (id, size) => ipcRenderer.invoke('seraphiel:terminal:resize', id, size),
@@ -140,6 +195,7 @@ contextBridge.exposeInMainWorld('seraphielDesktop', {
     return () => ipcRenderer.removeListener('seraphiel:bootstrap:event', listener)
   },
   getVersion: () => ipcRenderer.invoke('seraphiel:version'),
+  getRemoteDisplayReason: () => ipcRenderer.invoke('seraphiel:get-remote-display-reason'),
   uninstall: {
     summary: () => ipcRenderer.invoke('seraphiel:uninstall:summary'),
     run: mode => ipcRenderer.invoke('seraphiel:uninstall:run', { mode })

@@ -119,6 +119,9 @@ COPY package.json package-lock.json ./
 COPY web/package.json web/
 COPY ui-tui/package.json ui-tui/
 COPY ui-tui/packages/seraphiel-ink/ ui-tui/packages/seraphiel-ink/
+# apps/shared/ is copied IN FULL because web/package.json references it as a
+# `file:` workspace dependency (same pattern as seraphiel-ink above).
+COPY apps/shared/ apps/shared/
 
 # `npm_config_install_links=false` forces npm to install `file:` deps as
 # symlinks instead of copies.  This is the default since npm 10+, which is
@@ -184,12 +187,19 @@ RUN uv sync --frozen --no-install-project --extra all --extra messaging --extra 
 # invalidate the (relatively slow) web + ui-tui build layer.
 COPY web/ web/
 COPY ui-tui/ ui-tui/
+COPY apps/shared/ apps/shared/
 RUN cd web && npm run build && \
     cd ../ui-tui && npm run build
 
 # ---------- Source code ----------
 # .dockerignore excludes node_modules, so the installs above survive.
-COPY . .
+# --link decouples this layer from parents for cache purposes; --chmod bakes
+# the final read-only permissions at copy time so we skip the separate
+# `chmod -R` pass that previously walked ~30k files across the venv +
+# node_modules + source (21s amd64 / 222s arm64 — #49113).  `a+rX,go-w`
+# gives the non-root seraphiel user read + traverse but no write; root retains
+# write so the build steps below don't need chmod u+w dances.
+COPY --link --chmod=a+rX,go-w . .
 
 # ---------- Permissions ----------
 # Link seraphiel-brain itself (editable). Deps are already installed in the
@@ -197,19 +207,15 @@ COPY . .
 # resolution or downloads.
 RUN uv pip install --no-cache-dir --no-deps -e "."
 
-# Keep /opt/seraphiel immutable for the runtime seraphiel user. Hosted/container
-# instances must not be able to self-edit the installed source or venv; user
-# data, skills, plugins, config, logs, and dashboard uploads live under
-# /opt/data instead. Root can still repair the image during build/boot, but
-# supervised Seraphiel processes drop to the non-root seraphiel user.
+# Wire the exec shim and install-method stamp.  Files under /opt/seraphiel are
+# already root-owned (COPY, uv sync, npm install all run as root) and
+# read-only for the seraphiel user (go-w from the --chmod above).
+
 USER root
 RUN mkdir -p /opt/seraphiel/bin && \
     cp /opt/seraphiel/docker/seraphiel-exec-shim.sh /opt/seraphiel/bin/seraphiel && \
     chmod 0755 /opt/seraphiel/bin/seraphiel && \
-    printf 'docker\n' > /opt/seraphiel/.install_method && \
-    chown -R root:root /opt/seraphiel && \
-    chmod -R a+rX /opt/seraphiel && \
-    chmod -R a-w /opt/seraphiel
+    printf 'docker\n' > /opt/seraphiel/.install_method
 # The ``.install_method`` stamp is baked next to the running code (the install
 # tree), NOT into $SERAPHIEL_HOME. $SERAPHIEL_HOME (/opt/data) is a shared data
 # volume that is commonly bind-mounted from the host and even shared with a
@@ -236,13 +242,11 @@ RUN mkdir -p /opt/seraphiel/bin && \
 #
 # The arg is optional — local `docker build` without --build-arg simply
 # omits the file, and the runtime falls back to live-git lookup.  CI
-# (.github/workflows/docker-publish.yml) passes ${{ github.sha }} so
+# (.github/workflows/docker.yml) passes ${{ github.sha }} so
 # every published image has it.
 ARG SERAPHIEL_GIT_SHA=
 RUN if [ -n "${SERAPHIEL_GIT_SHA}" ]; then \
-        chmod u+w /opt/seraphiel && \
-        printf '%s\n' "${SERAPHIEL_GIT_SHA}" > /opt/seraphiel/.seraphiel_build_sha && \
-        chmod a-w /opt/seraphiel /opt/seraphiel/.seraphiel_build_sha; \
+        printf '%s\n' "${SERAPHIEL_GIT_SHA}" > /opt/seraphiel/.seraphiel_build_sha; \
     fi
 
 # ---------- s6-overlay service wiring ----------
@@ -290,6 +294,19 @@ ENV SERAPHIEL_TUI_DIR=/opt/seraphiel/ui-tui
 ENV SERAPHIEL_HOME=/opt/data
 ENV SERAPHIEL_WRITE_SAFE_ROOT=/opt/data
 ENV SERAPHIEL_DISABLE_LAZY_INSTALLS=1
+# The published image seals /opt/seraphiel (root-owned, read-only) so a runtime
+# lazy install can't mutate the agent's own venv and brick it. But opt-in
+# backends (Firecrawl web search, Exa, Feishu, …) keep their SDKs in
+# tools/lazy_deps.py — deliberately NOT baked into [all] (see pyproject.toml
+# policy 2026-05-12: one quarantined release must not break every install).
+# Redirect those lazy installs to a writable dir on the durable data volume.
+# lazy_deps appends this dir to the END of sys.path, so a package installed
+# here can only ADD modules — it can never shadow or downgrade a core module,
+# so the sealed-venv guarantee holds even with installs re-enabled. The dir
+# is seeded + chowned to the seraphiel user by docker/stage2-hook.sh and lives
+# on the /opt/data volume, so it persists across container recreates / image
+# updates (an ABI stamp invalidates it if a rebuild bumps the interpreter).
+ENV SERAPHIEL_LAZY_INSTALL_TARGET=/opt/data/lazy-packages
 
 # `docker exec` privilege-drop shim. When operators run
 # `docker exec <c> seraphiel ...` they default to root, and any file the

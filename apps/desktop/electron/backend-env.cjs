@@ -61,10 +61,7 @@ function buildDesktopBackendPath({
   const venvBin = venvRoot ? pathModule.join(venvRoot, platform === 'win32' ? 'Scripts' : 'bin') : null
   const saneEntries = platform === 'win32' ? [] : POSIX_SANE_PATH_ENTRIES
 
-  return appendUniquePathEntries(
-    [seraphielNodeBin, venvBin, currentPath, saneEntries],
-    { delimiter }
-  )
+  return appendUniquePathEntries([seraphielNodeBin, venvBin, currentPath, saneEntries], { delimiter })
 }
 
 function normalizeSeraphielHomeRoot(seraphielHome, { pathModule = pathModuleForPlatform(process.platform) } = {}) {

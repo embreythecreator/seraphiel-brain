@@ -76,10 +76,7 @@ test('normalizeSeraphielHomeRoot maps profile homes back to the global Seraphiel
     normalizeSeraphielHomeRoot('C:\\Users\\test\\AppData\\Local\\seraphiel\\profiles\\oracle', { pathModule: path.win32 }),
     'C:\\Users\\test\\AppData\\Local\\seraphiel'
   )
-  assert.equal(
-    normalizeSeraphielHomeRoot('/Users/test/.seraphiel', { pathModule: path.posix }),
-    '/Users/test/.seraphiel'
-  )
+  assert.equal(normalizeSeraphielHomeRoot('/Users/test/.seraphiel', { pathModule: path.posix }), '/Users/test/.seraphiel')
 })
 
 test('Windows PATH casing and delimiter are preserved without POSIX sane entries', () => {
@@ -104,8 +101,5 @@ test('Windows PATH casing and delimiter are preserved without POSIX sane entries
 })
 
 test('appendUniquePathEntries drops empty entries and keeps first occurrence', () => {
-  assert.equal(
-    appendUniquePathEntries([':/a::/b', ['/a', '/c']], { delimiter: ':' }),
-    '/a:/b:/c'
-  )
+  assert.equal(appendUniquePathEntries([':/a::/b', ['/a', '/c']], { delimiter: ':' }), '/a:/b:/c')
 })

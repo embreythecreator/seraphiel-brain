@@ -30,44 +30,6 @@ Open WebUI talks to Seraphiel server-to-server, so you do not need `API_SERVER_C
 
 ## Quick Setup
 
-### One-command local bootstrap (macOS/Linux, no Docker)
-
-If you want Seraphiel + Open WebUI wired together locally with a reusable launcher, run:
-
-```bash
-cd ~/.seraphiel/seraphiel-brain
-bash scripts/setup_open_webui.sh
-```
-
-What the script does:
-
-- ensures `~/.seraphiel/.env` contains `API_SERVER_ENABLED`, `API_SERVER_HOST`, `API_SERVER_KEY`, `API_SERVER_PORT`, and `API_SERVER_MODEL_NAME`
-- restarts the Seraphiel gateway so the API server comes up
-- installs Open WebUI into `~/.local/open-webui-venv`
-- writes a launcher at `~/.local/bin/start-open-webui-seraphiel.sh`
-- on macOS, installs a `launchd` user service; on Linux with `systemd --user`, installs a user service there
-
-Defaults:
-
-- Seraphiel API: `http://127.0.0.1:8642/v1`
-- Open WebUI: `http://127.0.0.1:8080`
-- model name advertised to Open WebUI: `Seraphiel Brain`
-
-Useful overrides:
-
-```bash
-OPEN_WEBUI_NAME='My Seraphiel UI' \
-OPEN_WEBUI_ENABLE_SIGNUP=true \
-SERAPHIEL_API_MODEL_NAME='My Seraphiel Brain' \
-bash scripts/setup_open_webui.sh
-```
-
-On Linux, automatic background service setup requires a working `systemd --user` session. If you are on a headless SSH box and want to skip service installation, run:
-
-```bash
-OPEN_WEBUI_ENABLE_SERVICE=false bash scripts/setup_open_webui.sh
-```
-
 ### 1. Enable the API server
 
 ```bash

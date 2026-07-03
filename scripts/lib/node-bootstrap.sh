@@ -230,6 +230,49 @@ _nb_install_bundled_node() {
 }
 
 # ---------------------------------------------------------------------------
+# Heal a broken Seraphiel-managed Node tree (partial upgrade / missing lib/)
+# ---------------------------------------------------------------------------
+
+_nb_managed_tool_broken() {
+    local tool="$1"
+    local probe
+    for probe in \
+        "$SERAPHIEL_HOME/node/bin/$tool" \
+        "$SERAPHIEL_HOME/node/${tool}.exe" \
+        "$SERAPHIEL_HOME/node/$tool"; do
+        if [ -x "$probe" ] || [ -f "$probe" ]; then
+            if ! "$probe" --version >/dev/null 2>&1; then
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+_nb_managed_node_needs_heal() {
+    local tool
+    for tool in node npm npx; do
+        if _nb_managed_tool_broken "$tool"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Redownload the pinned nodejs.org tarball when a managed tree exists but
+# node/npm/npx fail a --version probe. No-op when the tree is healthy or
+# absent. Used by seraphiel_constants.find_seraphiel_node_executable() and safe
+# to call from install reruns.
+heal_managed_node() {
+    [ -d "$SERAPHIEL_HOME/node" ] || return 1
+    if ! _nb_managed_node_needs_heal; then
+        return 0
+    fi
+    _nb_log "Seraphiel-managed Node is broken — redownloading to $SERAPHIEL_HOME/node/..."
+    _nb_install_bundled_node
+}
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 

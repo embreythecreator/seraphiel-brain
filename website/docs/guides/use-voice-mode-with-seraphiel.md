@@ -61,19 +61,19 @@ If that is not solid yet, fix text mode first.
 ### CLI microphone + playback
 
 ```bash
-pip install "seraphiel-brain[voice]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[voice]"
 ```
 
 ### Messaging platforms
 
 ```bash
-pip install "seraphiel-brain[messaging]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[messaging]"
 ```
 
 ### Premium ElevenLabs TTS
 
 ```bash
-pip install "seraphiel-brain[tts-premium]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[tts-premium]"
 ```
 
 ### Local NeuTTS (optional)
@@ -85,7 +85,7 @@ python -m pip install -U neutts[all]
 ### Everything
 
 ```bash
-pip install "seraphiel-brain[all]"
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[all]"
 ```
 
 ## Step 3: install system dependencies

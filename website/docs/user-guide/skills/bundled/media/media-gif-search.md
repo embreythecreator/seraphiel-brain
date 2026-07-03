@@ -38,7 +38,7 @@ Useful for finding reaction GIFs, creating visual content, and sending GIFs in c
 
 ## Setup
 
-Set your Tenor API key in your environment (add to `~/.seraphiel/.env`):
+Set your Tenor API key in your environment (add to `${SERAPHIEL_HOME:-~/.seraphiel}/.env`):
 
 ```bash
 TENOR_API_KEY=your_key_here

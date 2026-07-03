@@ -101,10 +101,7 @@ test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
 })
 
 test('resolveRemovableAppPath finds the unpacked dir on Linux', () => {
-  assert.equal(
-    resolveRemovableAppPath('/opt/seraphiel/linux-unpacked/seraphiel', 'linux', {}),
-    '/opt/seraphiel/linux-unpacked'
-  )
+  assert.equal(resolveRemovableAppPath('/opt/seraphiel/linux-unpacked/seraphiel', 'linux', {}), '/opt/seraphiel/linux-unpacked')
   // A system-package install (/usr/bin) → null, left to apt/dnf.
   assert.equal(resolveRemovableAppPath('/usr/bin/seraphiel', 'linux', {}), null)
 })

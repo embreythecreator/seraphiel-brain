@@ -8,8 +8,6 @@ description: "如何将 Seraphiel Brain 更新至最新版本或将其卸载"
 
 ## 更新
 
-### Git 安装方式
-
 使用单条命令更新至最新版本：
 
 ```bash
@@ -18,26 +16,11 @@ seraphiel update
 
 此命令会从 `main` 拉取最新代码、更新依赖项，并提示你配置自上次更新以来新增的选项。
 
-### pip 安装方式
-
-PyPI 发布版本跟踪**带标签的版本**（主版本和次版本发布），而非 `main` 上的每次提交。检查更新并升级：
-
-```bash
-seraphiel update --check    # 查看 PyPI 上是否有更新的版本
-seraphiel update            # 执行 pip install --upgrade seraphiel-brain
-```
-
-或手动执行：
-
-```bash
-pip install --upgrade seraphiel-brain    # 或：uv pip install --upgrade seraphiel-brain
-```
-
 :::tip
 `seraphiel update` 会自动检测新的配置选项并提示你添加。如果跳过了该提示，可手动运行 `seraphiel config check` 查看缺失的选项，再运行 `seraphiel config migrate` 以交互方式添加。
 :::
 
-### 更新过程（Git 安装方式）
+### 更新过程
 
 运行 `seraphiel update` 时，将依次执行以下步骤：
 
@@ -49,7 +32,7 @@ pip install --upgrade seraphiel-brain    # 或：uv pip install --upgrade seraph
 
 ### 仅预览：`seraphiel update --check`
 
-想在拉取前确认是否有更新？运行 `seraphiel update --check` — 对于 Git 安装方式，它会获取并与 `origin/main` 比较提交；对于 pip 安装方式，它会查询 PyPI 上的最新版本。不修改任何文件，不重启 gateway。适合在以"是否有更新"为条件的脚本和 cron 任务中使用。
+想在拉取前确认是否有更新？运行 `seraphiel update --check` — 它会获取并与 `origin/main` 比较提交。不修改任何文件，不重启 gateway。适合在以"是否有更新"为条件的脚本和 cron 任务中使用。
 
 ### 完整更新前备份：`--backup`
 
@@ -224,20 +207,11 @@ nix profile rollback
 
 ## 卸载
 
-### Git 安装方式
-
 ```bash
 seraphiel uninstall
 ```
 
 卸载程序会提供选项，让你保留配置文件（`~/.seraphiel/`）以便将来重新安装。
-
-### pip 安装方式
-
-```bash
-pip uninstall seraphiel-brain
-rm -rf ~/.seraphiel            # 可选 — 如计划重新安装则保留
-```
 
 ### 手动卸载
 

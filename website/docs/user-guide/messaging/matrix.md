@@ -362,7 +362,7 @@ E2EE requires the `mautrix` library with encryption extras and the `libolm` C li
 pip install 'mautrix[encryption]'
 
 # Or install with seraphiel extras
-pip install 'seraphiel-brain[matrix]'
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[matrix]"
 ```
 
 You also need `libolm` installed on your system:
@@ -644,7 +644,7 @@ pip install 'mautrix[encryption]'
 Or with Seraphiel extras:
 
 ```bash
-pip install 'seraphiel-brain[matrix]'
+cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[matrix]"
 ```
 
 ### Encryption errors / "could not decrypt event"
@@ -824,7 +824,7 @@ services:
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y libolm-dev && rm -rf /var/lib/apt/lists/*
-RUN pip install 'seraphiel-brain[matrix]'
+RUN cd ~/.seraphiel/seraphiel-brain && uv pip install -e ".[matrix]"
 
 CMD ["seraphiel", "gateway"]
 ```
