@@ -37,6 +37,7 @@ ALLOWED_STRAY = ("achievements/LICENSE", "security-guidance/NOTICE",
                  "docs/specs/2026-06-29-seraphiel-self-absorb-design.md",
                  "docs/specs/2026-07-03-word-memory-provider.md",
                  "skills/software-development/absorb-upstream/",
+                 "skills/software-development/self-update/",
                  "tests/seraphiel_cli/test_absorb_")
 CONFLICT_MARK = b"<<<<<<<"
 
