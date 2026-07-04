@@ -935,6 +935,10 @@ class ModelAssignment(BaseModel):
 class MoaModelSlot(BaseModel):
     provider: str = ""
     model: str = ""
+    role: str = ""
+    wing: str = ""
+    name: str = ""
+    purpose: str = ""
 
 
 class MoaPresetPayload(BaseModel):

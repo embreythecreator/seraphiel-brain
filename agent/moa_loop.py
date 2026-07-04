@@ -120,7 +120,9 @@ _REFERENCE_SYSTEM_PROMPT = (
 
 
 def _slot_label(slot: dict[str, str]) -> str:
-    return f"{slot.get('provider', '').strip()}:{slot.get('model', '').strip()}"
+    runtime = f"{slot.get('provider', '').strip()}:{slot.get('model', '').strip()}"
+    label = str(slot.get("wing") or slot.get("name") or slot.get("role") or "").strip()
+    return f"{label} ({runtime})" if label else runtime
 
 
 def _slot_runtime(slot: dict[str, str]) -> dict[str, Any]:
@@ -490,6 +492,85 @@ def _extract_text(response: Any) -> str:
         return ""
 
 
+def _latest_user_text(messages: list[dict[str, Any]]) -> str:
+    for message in reversed(messages):
+        if message.get("role") == "user" and isinstance(message.get("content"), str):
+            return message["content"]
+    return ""
+
+
+def _council_route_references(
+    reference_models: list[dict[str, str]],
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, str]], str]:
+    """Collapse the reference fan-out to the routed council wing.
+
+    Applies only when the model council is enabled with direct routing on AND
+    the preset's slots carry council role labels (the council preset does;
+    hand-built MoA presets don't and pass through untouched). Returns the
+    (possibly filtered) reference list and the routed role ("" = no routing).
+    Never raises — the council must never break a MoA turn.
+    """
+    if len(reference_models) < 2:
+        return reference_models, ""
+    try:
+        from seraphiel_cli.config import load_config
+        from seraphiel_cli.model_council import (
+            resolve_model_council_config,
+            route_model_role,
+        )
+
+        raw = (load_config() or {}).get("model_council")
+        cfg = resolve_model_council_config(raw)
+        if not (cfg.get("enabled") and cfg.get("direct_route_simple_tasks")):
+            return reference_models, ""
+        by_role = {
+            str(slot.get("role") or slot.get("wing") or "").strip(): slot
+            for slot in reference_models
+        }
+        by_role.pop("", None)
+        if not by_role:
+            return reference_models, ""
+        task = _latest_user_text(messages)
+        if not task.strip():
+            return reference_models, ""
+        decision = route_model_role(task, raw)
+        routed = by_role.get(str(decision.get("selectedRole") or ""))
+        if routed is None:
+            return reference_models, ""
+        return [routed], str(decision.get("selectedRole") or "")
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("Council direct-route skipped: %s", exc)
+        return reference_models, ""
+
+
+def _council_fallback_spares(
+    role: str, tried: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Untried slots from the routed role's specialist->fallback->Crown chain."""
+    try:
+        from seraphiel_cli.config import load_config
+        from seraphiel_cli.model_council import fallback_chain_for_role
+
+        seen = {
+            (str(s.get("provider") or ""), str(s.get("model") or "")) for s in tried
+        }
+        chain = fallback_chain_for_role(role, (load_config() or {}).get("model_council"))
+        return [
+            s for s in chain
+            if (str(s.get("provider") or ""), str(s.get("model") or "")) not in seen
+        ]
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("Council fallback chain unavailable: %s", exc)
+        return []
+
+
+def _all_references_failed(outputs: list[tuple[str, str, Any]]) -> bool:
+    return bool(outputs) and all(
+        str(text or "").startswith(("[failed:", "[skipped")) for _label, text, _u in outputs
+    )
+
+
 def aggregate_moa_context(
     *,
     user_prompt: str,
@@ -728,6 +809,15 @@ class MoAChatCompletions:
         if not preset.get("enabled", True):
             reference_models = []
 
+        # Council direct-route: collapse the fan-out to the single routed wing
+        # when the model council is enabled with direct routing on. Applied
+        # BEFORE the turn cache key so repeat tool-iterations reuse the routed
+        # wing's cached output. Presets without council role labels pass
+        # through untouched.
+        reference_models, _council_role = _council_route_references(
+            reference_models, messages
+        )
+
         from agent.usage_pricing import CanonicalUsage
 
         reference_outputs: list[tuple[str, str, Any]] = []
@@ -764,6 +854,25 @@ class MoAChatCompletions:
                 temperature=temperature,
                 max_tokens=None,
             )
+            if _council_role and _all_references_failed(reference_outputs):
+                # WO fallback ladder: retry the specialist once, then the
+                # fallback slot, then the Crown — fallback_chain_for_role with
+                # nothing marked tried yields exactly that (deduped) ladder.
+                # Run in one parallel batch; the aggregator synthesizes from
+                # whichever slots answered. Failures degrade to notes as usual.
+                ladder = _council_fallback_spares(_council_role, [])
+                if ladder:
+                    logger.warning(
+                        "Council wing '%s' failed — engaging fallback ladder (%d slot[s]).",
+                        _council_role,
+                        len(ladder),
+                    )
+                    reference_outputs += _run_references_parallel(
+                        ladder,
+                        ref_messages,
+                        temperature=temperature,
+                        max_tokens=None,
+                    )
             self._ref_cache_key = _cache_key
             self._ref_cache_outputs = list(reference_outputs)
             # Sum the advisor fan-out's token usage AND cost so the caller can

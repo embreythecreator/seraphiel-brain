@@ -71,9 +71,13 @@ def _print_config(config: dict[str, Any]) -> None:
         print(f"\n{marker} {name}")
         print("  Reference models:")
         for idx, slot in enumerate(preset["reference_models"], start=1):
-            print(f"    {idx}. {slot['provider']}:{slot['model']}")
+            label = slot.get("wing") or slot.get("name") or slot.get("role")
+            suffix = f"  [{label}]" if label else ""
+            print(f"    {idx}. {slot['provider']}:{slot['model']}{suffix}")
         agg = preset["aggregator"]
-        print(f"  Aggregator: {agg['provider']}:{agg['model']}")
+        label = agg.get("name") or agg.get("role")
+        suffix = f"  [{label}]" if label else ""
+        print(f"  Aggregator: {agg['provider']}:{agg['model']}{suffix}")
 
 
 def cmd_moa(args) -> None:

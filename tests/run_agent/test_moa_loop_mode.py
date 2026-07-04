@@ -81,6 +81,27 @@ def test_moa_runtime_provider_uses_virtual_endpoint():
     assert runtime["api_key"] == "moa-virtual-provider"
 
 
+def test_moa_slot_label_keeps_legacy_shape_without_metadata():
+    from agent.moa_loop import _slot_label
+
+    assert _slot_label({"provider": "openrouter", "model": "openai/gpt-5.5"}) == (
+        "openrouter:openai/gpt-5.5"
+    )
+
+
+def test_moa_slot_label_includes_council_role_metadata():
+    from agent.moa_loop import _slot_label
+
+    assert _slot_label(
+        {
+            "provider": "openrouter",
+            "model": "deepseek/deepseek-v4-pro",
+            "wing": "Code Reasoning Wing",
+            "role": "code_reasoning",
+        }
+    ) == "Code Reasoning Wing (openrouter:deepseek/deepseek-v4-pro)"
+
+
 def test_moa_does_not_cap_output_tokens(monkeypatch, tmp_path):
     """MoA must not inject an output cap on reference or aggregator calls.
 
@@ -1059,3 +1080,90 @@ def test_reference_guidance_merges_into_trailing_user_in_plain_chat():
     assert len(messages) == 2
     assert messages[-1]["role"] == "user"
     assert messages[-1]["content"] == "hello\n\nREFERENCE BLOCK"
+
+
+def _council_raw(**overrides):
+    raw = {
+        "enabled": True,
+        "direct_route_simple_tasks": True,
+        "roles": {
+            "code_reasoning": {"provider": "deepseek", "model": "deepseek-chat"},
+            "writing": {"provider": "anthropic", "model": "claude-opus-latest"},
+            "fallback": {"provider": "openai", "model": "gpt-latest"},
+            "orchestrator": {"provider": "anthropic", "model": "claude-fable-5"},
+        },
+    }
+    raw.update(overrides)
+    return raw
+
+
+def test_council_direct_route_collapses_fanout_to_routed_wing(monkeypatch):
+    from agent import moa_loop
+
+    monkeypatch.setattr(
+        "seraphiel_cli.config.load_config",
+        lambda: {"model_council": _council_raw()},
+    )
+    slots = [
+        {"provider": "anthropic", "model": "claude-opus-latest", "role": "writing"},
+        {"provider": "deepseek", "model": "deepseek-chat", "role": "code_reasoning"},
+    ]
+    routed, role = moa_loop._council_route_references(
+        slots, [{"role": "user", "content": "Debug this TypeScript function."}]
+    )
+    assert role == "code_reasoning"
+    assert routed == [slots[1]]
+
+
+def test_council_direct_route_disabled_or_unlabelled_passes_through(monkeypatch):
+    from agent import moa_loop
+
+    labelled = [
+        {"provider": "anthropic", "model": "claude-opus-latest", "role": "writing"},
+        {"provider": "deepseek", "model": "deepseek-chat", "role": "code_reasoning"},
+    ]
+    # Unlabelled slots (hand-built MoA preset): untouched even with council on.
+    unlabelled = [{"provider": "a", "model": "m1"}, {"provider": "b", "model": "m2"}]
+    monkeypatch.setattr(
+        "seraphiel_cli.config.load_config",
+        lambda: {"model_council": _council_raw()},
+    )
+    routed, role = moa_loop._council_route_references(
+        unlabelled, [{"role": "user", "content": "Debug this code"}]
+    )
+    assert routed == unlabelled and role == ""
+    # Council disabled: labelled preset also passes through (old behavior).
+    monkeypatch.setattr(
+        "seraphiel_cli.config.load_config",
+        lambda: {"model_council": _council_raw(enabled=False)},
+    )
+    monkeypatch.delenv("SERAPHIEL_MODEL_COUNCIL_ENABLED", raising=False)
+    routed, role = moa_loop._council_route_references(
+        labelled, [{"role": "user", "content": "Debug this code"}]
+    )
+    assert routed == labelled and role == ""
+
+
+def test_council_failure_detection_and_fallback_ladder(monkeypatch):
+    from agent import moa_loop
+
+    assert moa_loop._all_references_failed([("w", "[failed: boom]", None)])
+    assert not moa_loop._all_references_failed([("w", "advice", None)])
+    assert not moa_loop._all_references_failed([])
+
+    monkeypatch.setattr(
+        "seraphiel_cli.config.load_config",
+        lambda: {"model_council": _council_raw()},
+    )
+    ladder = moa_loop._council_fallback_spares("code_reasoning", [])
+    pairs = [(s["provider"], s["model"]) for s in ladder]
+    assert pairs[0] == ("deepseek", "deepseek-chat")      # retry the specialist
+    assert ("openai", "gpt-latest") in pairs              # then fallback
+    assert ("anthropic", "claude-fable-5") in pairs       # then the Crown
+    # Slots already tried are excluded when passed as tried.
+    spares = moa_loop._council_fallback_spares(
+        "code_reasoning", [{"provider": "deepseek", "model": "deepseek-chat"}]
+    )
+    assert ("deepseek", "deepseek-chat") not in [
+        (s["provider"], s["model"]) for s in spares
+    ]

@@ -7,18 +7,26 @@ import json
 from copy import deepcopy
 from typing import Any
 
+from seraphiel_cli.model_council import model_council_moa_preset
+
 MOA_MARKER_PREFIX = "__SERAPHIEL_MOA_TURN_V1__"
 DEFAULT_MOA_PRESET_NAME = "default"
 
-DEFAULT_MOA_REFERENCE_MODELS: list[dict[str, str]] = [
-    {"provider": "openai-codex", "model": "gpt-5.5"},
-    {"provider": "openrouter", "model": "deepseek/deepseek-v4-pro"},
-]
+_DEFAULT_COUNCIL_MOA_PRESET = model_council_moa_preset()
 
-DEFAULT_MOA_AGGREGATOR: dict[str, str] = {
-    "provider": "openrouter",
-    "model": "anthropic/claude-opus-4.8",
-}
+DEFAULT_MOA_REFERENCE_MODELS: list[dict[str, str]] = deepcopy(
+    _DEFAULT_COUNCIL_MOA_PRESET["reference_models"]
+)
+
+DEFAULT_MOA_AGGREGATOR: dict[str, str] = deepcopy(_DEFAULT_COUNCIL_MOA_PRESET["aggregator"])
+
+
+def _default_reference_models() -> list[dict[str, str]]:
+    return deepcopy(model_council_moa_preset()["reference_models"])
+
+
+def _default_aggregator() -> dict[str, str]:
+    return deepcopy(model_council_moa_preset()["aggregator"])
 
 
 def _coerce_float(value: Any, default: float) -> float:
@@ -56,17 +64,23 @@ def _clean_slot(slot: Any) -> dict[str, str] | None:
     # an invalid slot is dropped, falling back to the preset's defaults.
     if provider.lower() == "moa":
         return None
-    return {"provider": provider, "model": model}
+    clean = {"provider": provider, "model": model}
+    for key in ("role", "wing", "name", "purpose"):
+        value = str(slot.get(key) or "").strip()
+        if value:
+            clean[key] = value
+    return clean
 
 
 def _default_preset() -> dict[str, Any]:
+    preset = model_council_moa_preset()
     return {
-        "reference_models": deepcopy(DEFAULT_MOA_REFERENCE_MODELS),
-        "aggregator": deepcopy(DEFAULT_MOA_AGGREGATOR),
-        "reference_temperature": 0.6,
-        "aggregator_temperature": 0.4,
-        "max_tokens": 4096,
-        "enabled": True,
+        "reference_models": deepcopy(preset["reference_models"]),
+        "aggregator": deepcopy(preset["aggregator"]),
+        "reference_temperature": preset["reference_temperature"],
+        "aggregator_temperature": preset["aggregator_temperature"],
+        "max_tokens": preset["max_tokens"],
+        "enabled": preset["enabled"],
     }
 
 
@@ -83,9 +97,9 @@ def _normalize_preset(raw: Any) -> dict[str, Any]:
     refs = [_clean_slot(item) for item in raw_refs]
     refs = [item for item in refs if item is not None]
     if not refs:
-        refs = deepcopy(DEFAULT_MOA_REFERENCE_MODELS)
+        refs = _default_reference_models()
 
-    aggregator = _clean_slot(raw.get("aggregator")) or deepcopy(DEFAULT_MOA_AGGREGATOR)
+    aggregator = _clean_slot(raw.get("aggregator")) or _default_aggregator()
 
     return {
         "enabled": bool(raw.get("enabled", True)),

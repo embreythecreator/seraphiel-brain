@@ -91,6 +91,45 @@ You can also set `providers.<id>.stale_timeout_seconds` for the non-streaming st
 
 Leaving these unset keeps the legacy defaults (`SERAPHIEL_API_TIMEOUT=1800`s, `SERAPHIEL_API_CALL_STALE_TIMEOUT=90`s, native Anthropic 900s). The non-streaming stale detector is auto-disabled for local endpoints when left implicit and can scale upward for very large contexts. Not currently wired for AWS Bedrock (both `bedrock_converse` and AnthropicBedrock SDK paths use boto3 with its own timeout configuration). See the commented example in [`cli-config.yaml.example`](https://github.com/embreythecreator/seraphiel-brain/blob/main/cli-config.yaml.example).
 
+## Seraphiel Model Council
+
+Seraphiel can be configured as one Crown orchestrator plus six worker wings. The Crown is the router/judge/aggregator; the six wings are `reasoning`, `multimodal`, `writing`, `chinese_generalist`, `long_context_agent`, and `code_reasoning`. `fallback` is separate operational support and is not counted as a wing.
+
+The built-in `/moa` default preset uses all six wings as reference advisors and the Crown as the acting aggregator, which is the easiest way to test whether the council improves answers.
+
+```yaml
+model_council:
+  enabled: true
+  orchestrator_review_enabled: true
+  direct_route_simple_tasks: true
+  debug: false
+  roles:
+    orchestrator: {provider: openrouter, model: anthropic/claude-fable-5}
+    reasoning: {provider: openrouter, model: openai/gpt-5.5}
+    multimodal: {provider: openrouter, model: google/gemini-3-pro-preview}
+    writing: {provider: openrouter, model: anthropic/claude-opus-4.8}
+    chinese_generalist: {provider: openrouter, model: qwen/qwen3-plus}
+    long_context_agent: {provider: openrouter, model: z-ai/glm-5.2}
+    code_reasoning: {provider: openrouter, model: deepseek/deepseek-v4-pro}
+    fallback: {provider: openrouter, model: openai/gpt-5.5}
+```
+
+You can override the same roles from `.env` without editing YAML:
+
+```env
+SERAPHIEL_MODEL_COUNCIL_ENABLED=true
+SERAPHIEL_ORCHESTRATOR_MODEL=anthropic/claude-fable-5
+SERAPHIEL_REASONING_MODEL=openai/gpt-5.5
+SERAPHIEL_MULTIMODAL_MODEL=google/gemini-3-pro-preview
+SERAPHIEL_WRITING_MODEL=anthropic/claude-opus-4.8
+SERAPHIEL_CHINESE_GENERALIST_MODEL=qwen/qwen3-plus
+SERAPHIEL_LONG_CONTEXT_AGENT_MODEL=z-ai/glm-5.2
+SERAPHIEL_CODE_REASONING_MODEL=deepseek/deepseek-v4-pro
+SERAPHIEL_FALLBACK_MODEL=openai/gpt-5.5
+```
+
+Provider overrides use matching `SERAPHIEL_<ROLE>_PROVIDER` names, for example `SERAPHIEL_CODE_REASONING_PROVIDER=openrouter`. Model router logs never include user task text by default; set `SERAPHIEL_MODEL_ROUTER_DEBUG=true` to include the routing reason in logs while tuning.
+
 ## Update Behavior
 
 `seraphiel update` settings live under `updates` in `config.yaml`:

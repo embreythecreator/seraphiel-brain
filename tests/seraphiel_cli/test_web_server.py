@@ -485,8 +485,8 @@ class TestWebServerEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert data["reference_models"]
-        assert all(set(slot) == {"provider", "model"} for slot in data["reference_models"])
-        assert set(data["aggregator"]) == {"provider", "model"}
+        assert all({"provider", "model"}.issubset(set(slot)) for slot in data["reference_models"])
+        assert {"provider", "model"}.issubset(set(data["aggregator"]))
 
     def test_put_moa_models_persists_provider_model_slots(self):
         from seraphiel_cli.config import load_config

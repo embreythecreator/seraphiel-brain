@@ -28,6 +28,10 @@ GOOD = {
     "gateway/platforms/api_server.py": "def _seraphiel_version():\n    return 'dev'\n",
     "agent/prompt_builder.py": "# created by Embrey The Creator / The Voice\n",
     "seraphiel_cli/default_soul.py": "# created by Embrey The Creator / The Voice\n",
+    "agent/moa_loop.py": "def _council_route_references():\n    pass\n",
+    "seraphiel_cli/config.py": '"model_council": {}\n',
+    "seraphiel_cli/moa_config.py": "import model_council\n",
+    ".env.example": "SERAPHIEL_MODEL_COUNCIL_ENABLED=true\n",
 }
 
 

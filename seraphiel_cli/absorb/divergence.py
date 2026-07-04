@@ -18,6 +18,14 @@ INVARIANTS: list[tuple[str, str, str | None]] = [
     ("gateway/overlay/brain_settings.py", "exists", None),
     ("gateway/platforms/api_server.py", "contains", "_seraphiel_version"),
     ("agent/prompt_builder.py", "contains", "Embrey The Creator / The Voice"),
+    # Model-council wiring lives in files upstream also owns — a clean merge
+    # can silently revert it (vision-subsystem lesson). Ours-only files
+    # (model_council.py) survive merges without help; these need guarding.
+    ("agent/moa_loop.py", "contains", "_council_route_references"),
+    ("seraphiel_cli/config.py", "contains", "model_council"),
+    ("seraphiel_cli/moa_config.py", "contains", "model_council"),
+    (".env.example", "contains", "SERAPHIEL_MODEL_COUNCIL_ENABLED"),
+
     ("seraphiel_cli/default_soul.py", "contains", "Embrey The Creator / The Voice"),
 ]
 

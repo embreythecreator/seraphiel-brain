@@ -29,6 +29,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple, Set
 
+from seraphiel_cli.model_council import (
+    default_model_council_config,
+    model_council_moa_preset,
+)
 from seraphiel_cli.secret_prompt import masked_secret_prompt
 
 logger = logging.getLogger(__name__)
@@ -2150,9 +2154,16 @@ DEFAULT_CONFIG = {
         "max_turns": 20,
     },
 
+    # Seraphiel Model Council — one Crown orchestrator, six worker wings, and
+    # a separate operational fallback slot. Runtime code routes by role names;
+    # provider/model IDs live here or in SERAPHIEL_* env overrides.
+    "model_council": default_model_council_config(),
+
     # Mixture of Agents — named presets used by /moa. A preset is an execution
     # mode around the main model, not a provider/model itself: references +
     # aggregator synthesize private guidance before each main-model iteration.
+    # The built-in default preset maps the six Model Council wings to reference
+    # advisors and the Crown orchestrator to the acting aggregator.
     "moa": {
         "default_preset": "default",
         "active_preset": "",
@@ -2165,17 +2176,7 @@ DEFAULT_CONFIG = {
         "save_traces": False,
         "trace_dir": "",
         "presets": {
-            "default": {
-                "reference_models": [
-                    {"provider": "openai-codex", "model": "gpt-5.5"},
-                    {"provider": "openrouter", "model": "deepseek/deepseek-v4-pro"},
-                ],
-                "aggregator": {"provider": "openrouter", "model": "anthropic/claude-opus-4.8"},
-                "reference_temperature": 0.6,
-                "aggregator_temperature": 0.4,
-                "max_tokens": 4096,
-                "enabled": True,
-            }
+            "default": model_council_moa_preset()
         },
     },
 
@@ -4805,7 +4806,7 @@ _KNOWN_ROOT_KEYS = {
     "_config_version", "model", "providers", "fallback_model",
     "fallback_providers", "credential_pool_strategies", "toolsets",
     "agent", "terminal", "display", "compression", "delegation",
-    "auxiliary", "moa", "custom_providers", "context", "memory", "gateway",
+    "auxiliary", "model_council", "moa", "custom_providers", "context", "memory", "gateway",
     "sessions", "streaming", "updates", "mcp_servers",
 }
 

@@ -94,6 +94,36 @@ def test_normalize_moa_config_wraps_bare_dict_reference_models():
     assert cfg["presets"]["p"]["reference_models"] == [{"provider": "openai", "model": "gpt-4o"}]
 
 
+def test_normalize_moa_config_preserves_council_slot_metadata():
+    cfg = normalize_moa_config(
+        {
+            "reference_models": [
+                {
+                    "provider": "openrouter",
+                    "model": "deepseek/deepseek-v4-pro",
+                    "role": "code_reasoning",
+                    "wing": "Code Reasoning Wing",
+                    "purpose": "Debugging and structured execution.",
+                }
+            ],
+            "aggregator": {
+                "provider": "openrouter",
+                "model": "anthropic/claude-fable-5",
+                "role": "orchestrator",
+                "name": "Crown",
+            },
+        }
+    )
+
+    ref = cfg["reference_models"][0]
+    agg = cfg["aggregator"]
+    assert ref["role"] == "code_reasoning"
+    assert ref["wing"] == "Code Reasoning Wing"
+    assert ref["purpose"] == "Debugging and structured execution."
+    assert agg["role"] == "orchestrator"
+    assert agg["name"] == "Crown"
+
+
 def test_normalize_moa_config_coerces_numeric_strings():
     """Valid numeric strings (e.g. from YAML round-trip) must coerce correctly."""
     cfg = normalize_moa_config({"max_tokens": "8192", "reference_temperature": "0.9"})
