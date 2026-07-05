@@ -111,9 +111,9 @@ rejection, and tier mismatch — refusals are telemetry, not errors.
 | Phase | What moves | State after |
 |-------|-----------|-------------|
 | A1.1 ✅ | `BRAIN_ONLY` flag locks both chat surfaces to `/api/brain_chat` | No alternate reasoning providers |
-| A1.2 | This protocol: executor + result envelopes; `runConversationLoop` → execute-and-report bridge (onscreen + admin) | Loop, retries, compaction are Brain-side |
-| A1.3 | Prompt ownership: stop injecting Face system prompts / skills / promptinclude / personality / memory files into Brain requests; Face operator contract moves into Brain-side platform policy | Brain owns context |
-| A1.4 | State ownership: `~/memory/*.include.md`, agent history → Brain (session cache) / Word (durable, WO-B2); Face keeps UI layout, windows, widget files only | Kill condition met: no long-term state or independent reasoning loop in Face |
+| A1.2 ✅ | This protocol: executor + result envelopes; `runConversationLoop` → execute-and-report bridge (onscreen + admin) | Loop, retries, compaction are Brain-side |
+| A1.3 ✅ | Prompt ownership: Face stops injecting system prompts / skills / promptinclude / personality / memory files; operator contract + protocol + space.* brief now Brain-side platform policy (`gateway/platforms/face_policy.py`, keyed on `vessel:seraphiel:face:*` / `seraphiel-face-*`; idempotent for old clients). Face still forwards the user's own custom instructions. | Brain owns context |
+| A1.4 ✅ | State ownership: no local history replay — brain-only requests carry only the current turn; continuity via `X-Seraphiel-Session-Id`; Face history is UI-render-only; memory includes no longer reach requests | Kill condition met: no long-term model-facing state or independent reasoning loop in Face (face `3f356a4` + brain `4a77a1e9f`, 2026-07-05) |
 
 ## v1 decisions (locked 2026-07-05, shipped as proposed)
 
