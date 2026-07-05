@@ -59,6 +59,11 @@ from gateway.platforms.base import (
     SendResult,
     is_network_accessible,
 )
+from gateway.platforms.face_policy import (
+    build_face_policy,
+    contains_face_contract_id,
+    is_face_session,
+)
 from agent.redact import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
@@ -2129,6 +2134,10 @@ class APIServerAdapter(BasePlatformAdapter):
                     break
             session_id = _derive_chat_session_id(system_prompt, first_user)
             # history already set from request body above
+
+        if is_face_session(gateway_session_key, session_id) and not contains_face_contract_id(messages):
+            face_policy = build_face_policy()
+            system_prompt = f"{face_policy}\n\n{system_prompt}" if system_prompt else face_policy
 
         if action_result_payload is not None:
             try:

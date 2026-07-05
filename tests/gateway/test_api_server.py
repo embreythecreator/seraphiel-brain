@@ -37,6 +37,7 @@ from gateway.platforms.api_server import (
     cors_middleware,
     security_headers_middleware,
 )
+from gateway.platforms.face_policy import build_face_policy
 
 
 # ---------------------------------------------------------------------------
@@ -1604,6 +1605,113 @@ class TestChatCompletionsEndpoint:
             call_kwargs = mock_run.call_args
             assert call_kwargs.kwargs.get("ephemeral_system_prompt") == "You are a pirate."
             assert call_kwargs.kwargs.get("user_message") == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_face_session_key_adds_platform_policy_once(self, auth_adapter):
+        """Face's stable session key causes the Brain-owned Face policy to reach the agent."""
+        mock_result = {"final_response": "ok", "messages": [], "api_calls": 1}
+        app = _create_app(auth_adapter)
+
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(auth_adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+                resp = await cli.post(
+                    "/v1/chat/completions",
+                    headers={
+                        "X-Seraphiel-Session-Key": "vessel:seraphiel:face:user:v2",
+                        "Authorization": "Bearer sk-secret",
+                    },
+                    json={
+                        "model": "seraphiel-brain",
+                        "messages": [
+                            {"role": "system", "content": "Use terse replies."},
+                            {"role": "user", "content": "Hello"},
+                        ],
+                    },
+                )
+
+        assert resp.status == 200
+        prompt = mock_run.call_args.kwargs["ephemeral_system_prompt"]
+        assert prompt.startswith(build_face_policy())
+        assert "Use terse replies." in prompt
+        assert prompt.count("seraphiel-face-operator-contract-v2") == 1
+
+    @pytest.mark.asyncio
+    async def test_face_default_session_id_adds_platform_policy_without_session_key(self, auth_adapter):
+        """Face's default transcript id is enough to apply the platform policy."""
+        mock_result = {"final_response": "ok", "messages": [], "api_calls": 1}
+        mock_db = MagicMock()
+        mock_db.get_messages_as_conversation.return_value = []
+        auth_adapter._session_db = mock_db
+        app = _create_app(auth_adapter)
+
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(auth_adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+                resp = await cli.post(
+                    "/v1/chat/completions",
+                    headers={
+                        "X-Seraphiel-Session-Id": "seraphiel-face-onscreen-user-v2",
+                        "Authorization": "Bearer sk-secret",
+                    },
+                    json={"model": "seraphiel-brain", "messages": [{"role": "user", "content": "Hello"}]},
+                )
+
+        assert resp.status == 200
+        prompt = mock_run.call_args.kwargs["ephemeral_system_prompt"]
+        assert prompt == build_face_policy()
+        assert mock_run.call_args.kwargs["session_id"] == "seraphiel-face-onscreen-user-v2"
+
+    @pytest.mark.asyncio
+    async def test_non_face_session_does_not_add_platform_policy(self, adapter):
+        """Non-Face chat-completions requests are unchanged."""
+        mock_result = {"final_response": "ok", "messages": [], "api_calls": 1}
+        app = _create_app(adapter)
+
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+                resp = await cli.post(
+                    "/v1/chat/completions",
+                    json={"model": "seraphiel-brain", "messages": [{"role": "user", "content": "Hello"}]},
+                )
+
+        assert resp.status == 200
+        assert mock_run.call_args.kwargs["ephemeral_system_prompt"] is None
+
+    @pytest.mark.asyncio
+    async def test_existing_face_contract_is_not_duplicated(self, auth_adapter):
+        """Old Face clients that still inject the contract do not get a second copy."""
+        mock_result = {"final_response": "ok", "messages": [], "api_calls": 1}
+        legacy_contract = "Seraphiel Face operator contract (seraphiel-face-operator-contract-v2):\nlegacy copy"
+        mock_db = MagicMock()
+        mock_db.get_messages_as_conversation.return_value = []
+        auth_adapter._session_db = mock_db
+        app = _create_app(auth_adapter)
+
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(auth_adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+                resp = await cli.post(
+                    "/v1/chat/completions",
+                    headers={
+                        "X-Seraphiel-Session-Id": "seraphiel-face-onscreen-user-v2",
+                        "Authorization": "Bearer sk-secret",
+                    },
+                    json={
+                        "model": "seraphiel-brain",
+                        "messages": [
+                            {"role": "system", "content": legacy_contract},
+                            {"role": "user", "content": "Hello"},
+                        ],
+                    },
+                )
+
+        assert resp.status == 200
+        prompt = mock_run.call_args.kwargs["ephemeral_system_prompt"]
+        assert prompt == legacy_contract
+        assert prompt.count("seraphiel-face-operator-contract-v2") == 1
+        assert "space.* API brief" not in prompt
 
     @pytest.mark.asyncio
     async def test_conversation_history_passed(self, adapter):
