@@ -1,6 +1,10 @@
 # WO-A1 · Space Action Blocks — Brain→Face executor protocol
 
-Status: DRAFT v1 (2026-07-03) · Owner: Embrey The Creator / The Voice
+Status: SHIPPED v1 (2026-07-05) · Owner: Embrey The Creator / The Voice
+Landed: Brain-side ingestion in `46c850580` (rode along with the Model Council
+commit; gateway/platforms/api_server.py + tests) · Face-side executor in
+seraphiel-face `0eef06a` (space_action.js, both agent surfaces, brain_chat
+header forwarding, operator contract v2).
 Work order: `sys_brain_hermes_spine_seating` — seat the Brain as sole agent loop.
 
 ## Problem
@@ -111,11 +115,13 @@ rejection, and tier mismatch — refusals are telemetry, not errors.
 | A1.3 | Prompt ownership: stop injecting Face system prompts / skills / promptinclude / personality / memory files into Brain requests; Face operator contract moves into Brain-side platform policy | Brain owns context |
 | A1.4 | State ownership: `~/memory/*.include.md`, agent history → Brain (session cache) / Word (durable, WO-B2); Face keeps UI layout, windows, widget files only | Kill condition met: no long-term state or independent reasoning loop in Face |
 
-## Open questions (decide before A1.2 lands)
+## v1 decisions (locked 2026-07-05, shipped as proposed)
 
-1. Streaming actions: execute blocks as they close mid-stream, or wait for
-   end-of-message? (Proposal: end-of-message in v1 — simpler failure model.)
-2. Parallel blocks in one message: execute serially in document order (v1
-   proposal) or declare `depends_on`?
-3. Result truncation budget for huge DOM/content returns before it hits the
-   Brain's context (proposal: 32KB + Word-side spill per WO-B2).
+1. Streaming actions: **end-of-message** — blocks execute only after the full
+   assistant message arrives; simpler failure model.
+2. Parallel blocks in one message: **serial, document order**. `depends_on`
+   deferred until a structured kind needs it.
+3. Result truncation budget: **32768 chars** (`RESULT_TRUNCATION_LIMIT` in
+   Face `space_action.js`), console capped at 8KB joined; Word-side spill for
+   full payloads arrives with WO-B2 integration. Telemetry stores lengths
+   only, never full contents (`SERAPHIEL_HOME/logs/limb_rail.jsonl`).
