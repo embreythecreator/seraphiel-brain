@@ -1133,6 +1133,14 @@ class AIAgent:
 
     def _current_main_runtime(self) -> Dict[str, str]:
         """Return the live main runtime for session-scoped auxiliary routing."""
+        if (getattr(self, "provider", "") or "") == "moa":
+            # MoA is a virtual provider: model is a preset name ("default"),
+            # base_url is "moa://local", and no real endpoint accepts either
+            # (live-fire: title generation 400'd with "default is not a valid
+            # model ID"). Returning {} sends auxiliary calls (title gen,
+            # compression, session search) down call_llm's documented
+            # no-main-runtime path — the auxiliary client's own default model.
+            return {}
         return {
             "model": getattr(self, "model", "") or "",
             "provider": getattr(self, "provider", "") or "",

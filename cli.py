@@ -12292,7 +12292,11 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                         response,
                         self.conversation_history,
                         failure_callback=_title_failure_cb,
-                        main_runtime={
+                        # MoA is a virtual provider (model = preset name,
+                        # provider "moa"); no real endpoint accepts it, so
+                        # pass no main runtime and let the auxiliary client
+                        # use its own default model for the title.
+                        main_runtime=None if self.provider == "moa" else {
                             "model": self.model,
                             "provider": self.provider,
                             "base_url": self.base_url,

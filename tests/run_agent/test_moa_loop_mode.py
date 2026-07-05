@@ -1167,3 +1167,25 @@ def test_council_failure_detection_and_fallback_ladder(monkeypatch):
     assert ("deepseek", "deepseek-chat") not in [
         (s["provider"], s["model"]) for s in spares
     ]
+
+
+def test_main_runtime_empty_for_virtual_moa_provider():
+    from types import SimpleNamespace
+
+    from run_agent import AIAgent
+
+    moa_agent = SimpleNamespace(
+        provider="moa", model="default", base_url="moa://local",
+        api_key="moa-virtual-provider", api_mode="chat_completions",
+    )
+    # Virtual runtime must not leak to auxiliary calls (title gen 400'd on
+    # "default is not a valid model ID") — falsy => auxiliary default model.
+    assert AIAgent._current_main_runtime(moa_agent) == {}
+
+    real = SimpleNamespace(
+        provider="openrouter", model="anthropic/claude-opus-4.8",
+        base_url="https://openrouter.ai/api/v1", api_key="k", api_mode="chat_completions",
+    )
+    runtime = AIAgent._current_main_runtime(real)
+    assert runtime["provider"] == "openrouter"
+    assert runtime["model"] == "anthropic/claude-opus-4.8"
