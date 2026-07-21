@@ -1709,8 +1709,10 @@ class APIServerAdapter(BasePlatformAdapter):
         if err:
             return err
         payload = self._session_response(session)
+        # post_run variant: a spent EXECUTING policy on a hard reload must
+        # read as exited, not stick until some future turn reconciles it.
         payload["plan"] = await asyncio.to_thread(
-            self._plan_block, request.match_info["session_id"]
+            self._plan_block_post_run, request.match_info["session_id"]
         )
         return web.json_response({"object": "seraphiel.session", "session": payload})
 
@@ -1837,6 +1839,24 @@ class APIServerAdapter(BasePlatformAdapter):
             "path": policy.plan_path,
             "task": policy.task,
         }
+
+    def _plan_block_post_run(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Plan block for payloads built AFTER an agent run has ended.
+
+        An EXECUTING policy at that point is spent — the armed approval was
+        consumed at turn start — so finish it here. Otherwise clients see a
+        stale "executing" that only clears when a NEXT turn happens to run
+        (load_for_turn's lazy reconciliation).
+        """
+        try:
+            from agent.execution_policy import ExecutionPolicyStore, PlanModeState
+            store = ExecutionPolicyStore()
+            policy = store.load(session_id)
+            if policy.state is PlanModeState.EXECUTING and not policy.armed:
+                store.finish(session_id)
+        except Exception:
+            logger.debug("[api_server] post-run plan reconciliation failed", exc_info=True)
+        return self._plan_block(session_id)
 
     def _apply_plan_mode(self, user_message: str, session_id: str) -> tuple[Optional[str], str]:
         """Intercept /plan commands and plan-mode reminders for API chat.
@@ -2523,7 +2543,7 @@ class APIServerAdapter(BasePlatformAdapter):
             # contract as the session-chat handlers, keyed to the session the
             # agent actually ran under (compression can rotate it).
             "plan": await asyncio.to_thread(
-                self._plan_block, result.get("session_id", session_id) or session_id
+                self._plan_block_post_run, result.get("session_id", session_id) or session_id
             ),
         }
         if is_partial or is_failed or not completed:
@@ -2690,7 +2710,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 # Client-safe plan-mode state; None when the mode is off. The
                 # Face clears its badge/card on None, so the key is always
                 # present (same contract as the session-chat stream).
-                "plan": await asyncio.to_thread(self._plan_block, _plan_session_id),
+                "plan": await asyncio.to_thread(self._plan_block_post_run, _plan_session_id),
             }
             if finish_reason != "stop":
                 finish_chunk["choices"][0]["delta"] = {}
