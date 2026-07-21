@@ -2256,9 +2256,80 @@ class APIServerAdapter(BasePlatformAdapter):
             except Exception as exc:
                 logger.warning("Failed to record Limb Rail action-result telemetry: %s", exc)
 
+        # Plan mode: the Face's canvas chat rides this OpenAI-compat endpoint,
+        # so it gets the same /plan interception + client-safe plan block as
+        # the session-chat handlers. Multimodal (list) content never carries a
+        # /plan command, so only string messages are intercepted. The Face
+        # wraps user text in a prepared-block header ("_____user\n<text>") —
+        # unwrap it for the check and re-apply it to any rewrite so the
+        # prompt protocol stays intact.
+        plan_reply = None
+        if isinstance(user_message, str):
+            plan_text = user_message
+            plan_prefix = ""
+            _stripped = plan_text.lstrip()
+            if _stripped.startswith("_____user"):
+                _body = _stripped[len("_____user"):].lstrip("\r\n")
+                plan_prefix = plan_text[: len(plan_text) - len(_body)]
+                plan_text = _body
+            plan_reply, _effective = await asyncio.to_thread(
+                self._apply_plan_mode, plan_text, session_id
+            )
+            if plan_reply is None and _effective != plan_text:
+                user_message = plan_prefix + _effective
+
         completion_id = f"chatcmpl-{uuid.uuid4().hex[:29]}"
         model_name = body.get("model", self._model_name)
         created = int(time.time())
+
+        if plan_reply is not None:
+            # /plan control subcommand — synthesized reply, no agent run.
+            plan_block = await asyncio.to_thread(self._plan_block, session_id)
+            control_headers = {"X-Seraphiel-Session-Id": session_id}
+            if gateway_session_key:
+                control_headers["X-Seraphiel-Session-Key"] = gateway_session_key
+            if not stream:
+                return web.json_response(
+                    {
+                        "id": completion_id,
+                        "object": "chat.completion",
+                        "created": created,
+                        "model": model_name,
+                        "choices": [{
+                            "index": 0,
+                            "message": {"role": "assistant", "content": plan_reply},
+                            "finish_reason": "stop",
+                        }],
+                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                        "plan": plan_block,
+                    },
+                    headers=control_headers,
+                )
+            sse_headers = {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                **control_headers,
+            }
+            origin = request.headers.get("Origin", "")
+            cors = self._cors_headers_for_origin(origin) if origin else None
+            if cors:
+                sse_headers.update(cors)
+            response = web.StreamResponse(status=200, headers=sse_headers)
+            await response.prepare(request)
+            base_chunk = {
+                "id": completion_id, "object": "chat.completion.chunk",
+                "created": created, "model": model_name,
+            }
+            for chunk in (
+                {**base_chunk, "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]},
+                {**base_chunk, "choices": [{"index": 0, "delta": {"content": plan_reply}, "finish_reason": None}]},
+                {**base_chunk, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}], "plan": plan_block},
+            ):
+                await response.write(f"data: {json.dumps(chunk)}\n\n".encode())
+            await response.write(b"data: [DONE]\n\n")
+            await response.write_eof()
+            return response
 
         if stream:
             import queue as _q
@@ -2448,6 +2519,12 @@ class APIServerAdapter(BasePlatformAdapter):
                 "completion_tokens": usage.get("output_tokens", 0),
                 "total_tokens": usage.get("total_tokens", 0),
             },
+            # Client-safe plan-mode state (None when the mode is off) — same
+            # contract as the session-chat handlers, keyed to the session the
+            # agent actually ran under (compression can rotate it).
+            "plan": await asyncio.to_thread(
+                self._plan_block, result.get("session_id", session_id) or session_id
+            ),
         }
         if is_partial or is_failed or not completed:
             response_data["seraphiel"] = {
@@ -2598,6 +2675,9 @@ class APIServerAdapter(BasePlatformAdapter):
                 finish_reason = "stop"
 
             # Finish chunk
+            _plan_session_id = (
+                result.get("session_id") if isinstance(result, dict) else None
+            ) or session_id or ""
             finish_chunk = {
                 "id": completion_id, "object": "chat.completion.chunk",
                 "created": created, "model": model,
@@ -2607,6 +2687,10 @@ class APIServerAdapter(BasePlatformAdapter):
                     "completion_tokens": usage.get("output_tokens", 0),
                     "total_tokens": usage.get("total_tokens", 0),
                 },
+                # Client-safe plan-mode state; None when the mode is off. The
+                # Face clears its badge/card on None, so the key is always
+                # present (same contract as the session-chat stream).
+                "plan": await asyncio.to_thread(self._plan_block, _plan_session_id),
             }
             if finish_reason != "stop":
                 finish_chunk["choices"][0]["delta"] = {}
