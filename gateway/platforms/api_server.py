@@ -981,6 +981,11 @@ class APIServerAdapter(BasePlatformAdapter):
         # Number of in-flight runs on the non-streaming chat/responses paths
         # (the /v1/runs path tracks its own in-flight set via _run_streams).
         self._inflight_agent_runs: int = 0
+        # Per-session in-flight counts (non-streaming _run_agent path) so
+        # /plan mutations can be rejected while that session's turn runs —
+        # mirrors the gateway busy-guard. Streaming runs are detected via
+        # _active_run_agents in _session_busy().
+        self._inflight_session_counts: Dict[str, int] = {}
 
     @staticmethod
     def _parse_cors_origins(value: Any) -> tuple[str, ...]:
@@ -1822,6 +1827,17 @@ class APIServerAdapter(BasePlatformAdapter):
         fork = db.get_session(fork_id) or {"id": fork_id, "parent_session_id": source_id}
         return web.json_response({"object": "seraphiel.session", "session": self._session_response(fork)}, status=201)
 
+    def _session_busy(self, session_id: str) -> bool:
+        """True if an agent turn is currently in flight for this session."""
+        if not session_id:
+            return False
+        if self._inflight_session_counts.get(session_id):
+            return True
+        for _agent in list(self._active_run_agents.values()):
+            if getattr(_agent, "session_id", None) == session_id:
+                return True
+        return False
+
     def _plan_block(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Client-safe plan-mode state for session/chat responses, or None."""
         try:
@@ -1852,7 +1868,15 @@ class APIServerAdapter(BasePlatformAdapter):
             from agent.execution_policy import ExecutionPolicyStore, PlanModeState
             store = ExecutionPolicyStore()
             policy = store.load(session_id)
-            if policy.state is PlanModeState.EXECUTING and not policy.armed:
+            if (
+                policy.state is PlanModeState.EXECUTING
+                and not policy.armed
+                # The armed flag is consumed at turn START, so while the
+                # approved turn is still running the row reads
+                # EXECUTING+unarmed — a concurrent session GET must not
+                # finish() the policy out from under the live run.
+                and not self._session_busy(session_id)
+            ):
                 store.finish(session_id)
         except Exception:
             logger.debug("[api_server] post-run plan reconciliation failed", exc_info=True)
@@ -1868,7 +1892,20 @@ class APIServerAdapter(BasePlatformAdapter):
         instruction, or the original text prefixed with the plan reminder.
         """
         text = (user_message or "").strip()
-        if text.startswith("/plan"):
+        # Exact-token match only: "/planning notes" must NOT be intercepted
+        # (gateway and CLI tokenize the command word; prefix-matching here
+        # would silently enter plan mode with a mangled task).
+        if text == "/plan" or text.startswith("/plan "):
+            args = text[len("/plan"):].strip()
+            # Busy-guard parity with the gateway: only /plan status is safe
+            # while this session's turn is in flight — entering, approving,
+            # or exiting would race the running turn's policy snapshot.
+            if args.lower() != "status" and self._session_busy(session_id):
+                return (
+                    "Agent is running — wait for the turn to finish, "
+                    "then use /plan.",
+                    user_message,
+                )
             from agent.plan_mode import handle_plan_command
             runtime_is_codex = False
             try:
@@ -1880,7 +1917,7 @@ class APIServerAdapter(BasePlatformAdapter):
             except Exception:
                 pass
             result = handle_plan_command(
-                text[len("/plan"):].strip(),
+                args,
                 session_id,
                 runtime_is_codex=runtime_is_codex,
             )
@@ -1956,7 +1993,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 "message": {"role": "assistant", "content": final_response},
                 "usage": usage,
                 "plan": await asyncio.to_thread(
-                    self._plan_block, effective_session_id or session_id
+                    self._plan_block_post_run, effective_session_id or session_id
                 ),
             },
             headers=headers,
@@ -2082,7 +2119,7 @@ class APIServerAdapter(BasePlatformAdapter):
                     "messages": turn_messages,
                     "usage": usage,
                     "plan": await asyncio.to_thread(
-                        self._plan_block, effective_session_id
+                        self._plan_block_post_run, effective_session_id
                     ),
                 }))
             except Exception as exc:
@@ -4247,10 +4284,20 @@ class APIServerAdapter(BasePlatformAdapter):
                 clear_session_vars(tokens)
 
         self._inflight_agent_runs += 1
+        if session_id:
+            self._inflight_session_counts[session_id] = (
+                self._inflight_session_counts.get(session_id, 0) + 1
+            )
         try:
             return await loop.run_in_executor(None, _run)
         finally:
             self._inflight_agent_runs -= 1
+            if session_id:
+                _n = self._inflight_session_counts.get(session_id, 0) - 1
+                if _n <= 0:
+                    self._inflight_session_counts.pop(session_id, None)
+                else:
+                    self._inflight_session_counts[session_id] = _n
 
     # ------------------------------------------------------------------
     # /v1/runs — structured event streaming

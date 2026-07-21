@@ -245,3 +245,69 @@ def test_builtin_plan_command_registered():
     from seraphiel_cli.commands import COMMAND_REGISTRY
     names = {c.name for c in COMMAND_REGISTRY}
     assert "plan" in names
+
+
+# ── Audit fixes: races, migration, load resilience ───────────────────
+
+def test_double_approve_second_caller_rejected(store, tmp_path):
+    """Two concurrent approves must not both arm execution (TOCTOU)."""
+    import threading
+
+    ready = _ready(store, tmp_path)
+    results = []
+    barrier = threading.Barrier(2)
+
+    def _approve():
+        barrier.wait()
+        results.append(store.approve(SID, ready.short_id))
+
+    threads = [threading.Thread(target=_approve) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    oks = [r for r in results if r[1] is None]
+    errs = [r for r in results if r[1] is not None]
+    assert len(oks) == 1 and len(errs) == 1
+    assert "No plan is awaiting approval" in errs[0][1]
+
+
+def test_migrate_carries_policy_across_session_rotation(store, tmp_path):
+    ready = _ready(store, tmp_path)
+    store.migrate(SID, "sess-rotated")
+    assert store.load(SID).state is PlanModeState.OFF
+    moved = store.load("sess-rotated")
+    assert moved.state is PlanModeState.READY
+    assert moved.plan_id == ready.plan_id
+    assert moved.digest == ready.digest
+
+
+def test_migrate_noops_when_off_or_same_id(store):
+    store.migrate(SID, SID)
+    store.migrate(SID, "sess-other")
+    assert store.load("sess-other").state is PlanModeState.OFF
+
+
+def test_load_retries_transient_db_errors(store, monkeypatch):
+    """A locked DB must not silently unlock a planning session."""
+    _planning(store)
+    real = store._get_db().get_execution_policy
+    calls = {"n": 0}
+
+    def _flaky(session_id):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise RuntimeError("database is locked")
+        return real(session_id)
+
+    monkeypatch.setattr(store._get_db(), "get_execution_policy", _flaky)
+    assert store.load(SID).state is PlanModeState.PLANNING
+    assert calls["n"] == 3
+
+
+def test_plan_toolset_not_user_configurable():
+    """/plan enters PLANNING unconditionally, so save_plan must never be
+    strippable via the `seraphiel tools` checklist."""
+    from seraphiel_cli.tools_config import CONFIGURABLE_TOOLSETS
+    assert all(key != "plan" for key, _, _ in CONFIGURABLE_TOOLSETS)

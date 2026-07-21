@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field, replace
@@ -152,6 +153,24 @@ def compute_plan_digest(path: str) -> Optional[str]:
         return None
 
 
+# Read-modify-write transitions (approve, armed-consume, revision) are not
+# atomic at the DB layer; serialize them per session so two concurrent
+# requests in one process cannot both pass a state check before either
+# saves (double-approve TOCTOU).
+# ponytail: in-process locks only — CLI + gateway racing the SAME session
+# from two processes would need a conditional UPDATE in SessionDB.
+_SESSION_LOCKS: dict = {}
+_SESSION_LOCKS_GUARD = threading.Lock()
+
+
+def _session_lock(session_id: str) -> "threading.Lock":
+    with _SESSION_LOCKS_GUARD:
+        lock = _SESSION_LOCKS.get(session_id)
+        if lock is None:
+            lock = _SESSION_LOCKS[session_id] = threading.Lock()
+        return lock
+
+
 class ExecutionPolicyStore:
     """Load/save + state transitions over SessionDB.
 
@@ -171,11 +190,22 @@ class ExecutionPolicyStore:
     def load(self, session_id: str) -> ExecutionPolicy:
         if not session_id:
             return ExecutionPolicy()
-        try:
-            data = self._get_db().get_execution_policy(session_id)
-        except Exception:
-            logger.exception("execution policy load failed; defaulting to ACT")
-            return ExecutionPolicy()
+        # Retry transient read failures (locked DB under multi-process
+        # contention) before defaulting to ACT — a planning session that
+        # falls back on a hiccup would silently run UNLOCKED.
+        for attempt in range(3):
+            try:
+                data = self._get_db().get_execution_policy(session_id)
+                break
+            except Exception:
+                if attempt == 2:
+                    logger.warning(
+                        "execution policy load failed after retries; "
+                        "defaulting to ACT (plan mode NOT enforced this turn)",
+                        exc_info=True,
+                    )
+                    return ExecutionPolicy()
+                time.sleep(0.05 * (attempt + 1))
         if not data:
             return ExecutionPolicy()
         return ExecutionPolicy.from_dict(data)
@@ -192,18 +222,19 @@ class ExecutionPolicyStore:
         EXECUTING + unarmed -> stale (approved turn already ran, or crashed
                               mid-execution): reset to OFF.
         """
-        policy = self.load(session_id)
-        if policy.state is not PlanModeState.EXECUTING:
-            return policy
-        if policy.armed:
-            consumed = replace(policy, armed=False, turn_id=turn_id or "")
-            try:
-                self.save(session_id, consumed)
-            except Exception:
-                logger.exception("execution policy consume failed")
-            return consumed
-        self.finish(session_id)
-        return ExecutionPolicy()
+        with _session_lock(session_id):
+            policy = self.load(session_id)
+            if policy.state is not PlanModeState.EXECUTING:
+                return policy
+            if policy.armed:
+                consumed = replace(policy, armed=False, turn_id=turn_id or "")
+                try:
+                    self.save(session_id, consumed)
+                except Exception:
+                    logger.exception("execution policy consume failed")
+                return consumed
+            self.finish(session_id)
+            return ExecutionPolicy()
 
     def enter_planning(self, session_id: str, task: str) -> ExecutionPolicy:
         policy = ExecutionPolicy(state=PlanModeState.PLANNING, task=task.strip())
@@ -214,48 +245,71 @@ class ExecutionPolicyStore:
         self, session_id: str, *, path: str, digest: str
     ) -> Tuple[Optional[ExecutionPolicy], Optional[str]]:
         """Register a saved plan revision. PLANNING/READY -> READY."""
-        policy = self.load(session_id)
-        if policy.state not in (PlanModeState.PLANNING, PlanModeState.READY):
-            return None, "save_plan requires plan mode (/plan <task>)."
-        policy = replace(
-            policy,
-            state=PlanModeState.READY,
-            plan_id=policy.plan_id or uuid.uuid4().hex,
-            revision=policy.revision + 1,
-            digest=digest,
-            plan_path=path,
-        )
-        self.save(session_id, policy)
-        return policy, None
+        with _session_lock(session_id):
+            policy = self.load(session_id)
+            if policy.state not in (PlanModeState.PLANNING, PlanModeState.READY):
+                return None, "save_plan requires plan mode (/plan <task>)."
+            policy = replace(
+                policy,
+                state=PlanModeState.READY,
+                plan_id=policy.plan_id or uuid.uuid4().hex,
+                revision=policy.revision + 1,
+                digest=digest,
+                plan_path=path,
+            )
+            self.save(session_id, policy)
+            return policy, None
 
     def approve(
         self, session_id: str, short_id: str
     ) -> Tuple[Optional[ExecutionPolicy], Optional[str]]:
         """READY -> EXECUTING(armed). Validates short-id and plan digest."""
-        policy = self.load(session_id)
-        if policy.state is not PlanModeState.READY:
-            return None, (
-                f"No plan is awaiting approval (state: {policy.state.value})."
-            )
-        if not short_id or short_id != policy.short_id:
-            return None, (
-                f"Unknown plan id '{short_id}'. The current plan is "
-                f"{policy.short_id} (rev {policy.revision})."
-            )
-        actual = compute_plan_digest(policy.plan_path)
-        if actual is None:
-            return None, f"Plan file missing or unreadable: {policy.plan_path}"
-        if actual != policy.digest:
-            return None, (
-                "Plan file changed on disk since it was saved (digest "
-                "mismatch). Ask for a fresh revision, then approve that."
-            )
-        policy = replace(policy, state=PlanModeState.EXECUTING, armed=True)
-        self.save(session_id, policy)
-        return policy, None
+        with _session_lock(session_id):
+            policy = self.load(session_id)
+            if policy.state is not PlanModeState.READY:
+                return None, (
+                    f"No plan is awaiting approval (state: {policy.state.value})."
+                )
+            if not short_id or short_id != policy.short_id:
+                return None, (
+                    f"Unknown plan id '{short_id}'. The current plan is "
+                    f"{policy.short_id} (rev {policy.revision})."
+                )
+            actual = compute_plan_digest(policy.plan_path)
+            if actual is None:
+                return None, f"Plan file missing or unreadable: {policy.plan_path}"
+            if actual != policy.digest:
+                return None, (
+                    "Plan file changed on disk since it was saved (digest "
+                    "mismatch). Ask for a fresh revision, then approve that."
+                )
+            policy = replace(policy, state=PlanModeState.EXECUTING, armed=True)
+            self.save(session_id, policy)
+            return policy, None
 
     def finish(self, session_id: str) -> None:
         try:
             self._get_db().clear_execution_policy(session_id)
         except Exception:
             logger.exception("execution policy clear failed")
+
+    def migrate(self, old_session_id: str, new_session_id: str) -> None:
+        """Carry an active policy across a session-id rotation (compression).
+
+        Without this, compression mid-PLANNING orphans the policy row and
+        the next turn silently loads OFF/ACT — fail-open while the operator
+        believes plan mode is on.
+        """
+        if not old_session_id or not new_session_id:
+            return
+        if old_session_id == new_session_id:
+            return
+        with _session_lock(old_session_id):
+            policy = self.load(old_session_id)
+            if policy.state is PlanModeState.OFF:
+                return
+            try:
+                self.save(new_session_id, policy)
+                self.finish(old_session_id)
+            except Exception:
+                logger.exception("execution policy migration failed")

@@ -5836,8 +5836,13 @@ class SessionDB:
                     "SELECT policy_json FROM execution_policy WHERE session_id = ?",
                     (str(session_id),),
                 ).fetchone()
-            except sqlite3.OperationalError:
-                return None
+            except sqlite3.OperationalError as e:
+                # Table not created yet = genuinely no policy. Anything else
+                # (locked DB) must RAISE so ExecutionPolicyStore.load can
+                # retry instead of silently unlocking a planning session.
+                if "no such table" in str(e).lower():
+                    return None
+                raise
         if row is None:
             return None
         raw = row["policy_json"] if isinstance(row, sqlite3.Row) else row[0]

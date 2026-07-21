@@ -71,7 +71,10 @@ CONFIGURABLE_TOOLSETS = [
     ("tts",             "🔊 Text-to-Speech",            "text_to_speech"),
     ("skills",          "📚 Skills",                    "list, view, manage"),
     ("todo",            "📋 Task Planning",             "todo"),
-    ("plan",            "🗺️  Plan Mode Artifact",       "save_plan (plan mode)"),
+    # "plan" (save_plan) is deliberately NOT configurable: /plan enters
+    # PLANNING unconditionally, so a config with save_plan stripped would
+    # strand the model unable to reach READY. Non-configurable toolsets are
+    # auto-recovered for explicit saved configs by _get_platform_tools.
     ("memory",          "💾 Memory",                    "persistent memory across sessions"),
     ("context_engine",  "🧩 Context Engine",            "runtime tools from the active context engine"),
     ("session_search",  "🔎 Session Search",            "search past conversations"),

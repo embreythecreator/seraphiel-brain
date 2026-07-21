@@ -10295,17 +10295,26 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         context_prompt = build_session_context_prompt(context, redact_pii=_redact_pii)
 
         # Plan mode: while PLANNING/READY, prepend a one-line reminder so
-        # ordinary feedback messages keep the model planning (ordinary
-        # conversation content — never the system prompt; cache-safe).
+        # ordinary feedback messages keep the model planning. Goes on the
+        # USER message (like the API server), never context_prompt — that
+        # feeds the ephemeral system suffix, and varying it with plan state
+        # would bust the prompt-cache prefix on every mode/revision change.
+        # Skip the plan-invocation/execute rewrites themselves (already
+        # self-describing; avoids the double-prefix).
         try:
             from agent.execution_policy import ExecutionPolicyStore, ExecutionPosture
             from agent.plan_mode import build_plan_reminder
             _plan_policy = ExecutionPolicyStore().load(
                 getattr(session_entry, "session_id", "") or ""
             )
-            if _plan_policy.posture is ExecutionPosture.PLAN:
-                context_prompt = (
-                    build_plan_reminder(_plan_policy) + "\n\n" + context_prompt
+            if (
+                _plan_policy.posture is ExecutionPosture.PLAN
+                and event.text
+                and not event.text.startswith("[PLAN MODE ON]")
+                and not event.text.startswith("[Plan ")
+            ):
+                event.text = (
+                    build_plan_reminder(_plan_policy) + "\n\n" + event.text
                 )
         except Exception:
             logger.debug("plan-mode reminder injection failed", exc_info=True)

@@ -773,6 +773,20 @@ def compress_context(
                         # session as created — _ensure_db_session would otherwise
                         # retry a (harmless INSERT OR IGNORE) create next turn.
                         agent._session_db_created = True
+                    if old_session_id:
+                        # Carry an active plan-mode policy to the new session
+                        # id — otherwise compression mid-PLANNING orphans the
+                        # row and the next turn silently fails open to ACT.
+                        try:
+                            from agent.execution_policy import ExecutionPolicyStore
+                            ExecutionPolicyStore(agent._session_db).migrate(
+                                old_session_id, agent.session_id
+                            )
+                        except Exception:
+                            logger.warning(
+                                "execution-policy migration across session "
+                                "rotation failed", exc_info=True,
+                            )
                         raise
                     agent._session_db_created = True
                     # Carry a persistent /goal onto the continuation session.

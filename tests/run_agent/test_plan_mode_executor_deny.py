@@ -134,3 +134,46 @@ def test_concurrent_act_posture_runs_everything(monkeypatch):
     agent._execute_tool_calls_concurrent(msg, messages, "test_task")
     assert json.loads(messages[0]["content"]) == {"ok": True}
     assert agent._tool_guardrail_halt_decision is None
+
+
+def _bind_sequential(stub):
+    import run_agent as _ra
+    stub._execute_tool_calls_sequential = (
+        _ra.AIAgent._execute_tool_calls_sequential.__get__(stub)
+    )
+    stub.tool_delay = 0
+    return stub
+
+
+def test_sequential_deny_is_non_halting_and_loop_continues(monkeypatch):
+    """The sequential path must enforce the same deny: synthetic error
+    result, no real execution, no guardrail halt, later calls still run."""
+    agent = _bind_sequential(_make_agent(monkeypatch))
+    tc_denied = _FakeToolCall(
+        "write_file", args='{"path": "x.py", "content": "boom"}', call_id="tc_deny"
+    )
+    msg = _FakeAssistantMsg([tc_denied])
+    messages = []
+
+    agent._execute_tool_calls_sequential(msg, messages, "test_task")
+
+    assert len(messages) == 1
+    result = messages[0]
+    assert result.get("tool_call_id") == "tc_deny"
+    assert "Plan mode" in result["content"] and "write_file" in result["content"]
+    agent._invoke_tool.assert_not_called()
+    assert agent._tool_guardrail_halt_decision is None
+
+
+def test_sequential_act_posture_save_plan_denied(monkeypatch):
+    """Outside plan mode, save_plan itself is the denied tool."""
+    agent = _bind_sequential(_make_agent(monkeypatch))
+    agent._execution_policy = ExecutionPolicy()  # OFF -> ACT
+    msg = _FakeAssistantMsg(
+        [_FakeToolCall("save_plan", args='{"title": "t", "content": "c"}', call_id="tc_sp")]
+    )
+    messages = []
+    agent._execute_tool_calls_sequential(msg, messages, "test_task")
+    assert len(messages) == 1
+    assert "only available in plan mode" in messages[0]["content"]
+    assert agent._tool_guardrail_halt_decision is None
