@@ -2120,6 +2120,46 @@ class GatewaySlashCommandsMixin:
         # Let the normal message handler process it
         return await self._handle_message(retry_event)
 
+    async def _handle_plan_command(self, event: "MessageEvent") -> Optional[str]:
+        """Handle /plan for gateway platforms.
+
+        Returns a reply string for control subcommands (status/off/errors),
+        or ``None`` after rewriting ``event.text`` — the caller then falls
+        through to normal agent processing with the rewritten message
+        (plan-mode invocation or approved-execution instruction).
+        """
+        from agent.plan_mode import handle_plan_command
+
+        try:
+            session_entry = self.session_store.get_or_create_session(event.source)
+            session_id = getattr(session_entry, "session_id", "") or ""
+        except Exception as exc:
+            logger.debug("plan command: session lookup failed: %s", exc)
+            return "Plan mode unavailable: could not resolve the session."
+        if not session_id:
+            return "Plan mode unavailable: could not resolve the session."
+
+        runtime_is_codex = False
+        try:
+            from seraphiel_cli.config import load_config
+            from seraphiel_cli import codex_runtime_switch as crs
+            runtime_is_codex = (
+                crs.get_current_runtime(load_config()) == "codex_app_server"
+            )
+        except Exception:
+            pass
+
+        result = await asyncio.to_thread(
+            handle_plan_command,
+            event.get_command_args() or "",
+            session_id,
+            runtime_is_codex=runtime_is_codex,
+        )
+        if result.reply is not None:
+            return result.reply
+        event.text = result.rewritten_message or ""
+        return None
+
     async def _handle_goal_command(self, event: "MessageEvent") -> str:
         """Handle /goal for gateway platforms.
 

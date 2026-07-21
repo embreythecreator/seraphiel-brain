@@ -71,6 +71,7 @@ CONFIGURABLE_TOOLSETS = [
     ("tts",             "🔊 Text-to-Speech",            "text_to_speech"),
     ("skills",          "📚 Skills",                    "list, view, manage"),
     ("todo",            "📋 Task Planning",             "todo"),
+    ("plan",            "🗺️  Plan Mode Artifact",       "save_plan (plan mode)"),
     ("memory",          "💾 Memory",                    "persistent memory across sessions"),
     ("context_engine",  "🧩 Context Engine",            "runtime tools from the active context engine"),
     ("session_search",  "🔎 Session Search",            "search past conversations"),

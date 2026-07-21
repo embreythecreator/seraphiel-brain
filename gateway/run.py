@@ -8918,6 +8918,16 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             if _cmd_def_inner and _cmd_def_inner.name == "kanban":
                 return await self._handle_kanban_command(event)
 
+            # /plan status is query-only and safe mid-run. Entering plan
+            # mode, approving, or exiting mid-run would race the active
+            # turn's policy load — reject like /model.
+            if _cmd_def_inner and _cmd_def_inner.name == "plan":
+                _plan_arg = (event.get_command_args() or "").strip().lower()
+                if _plan_arg == "status":
+                    return await self._handle_plan_command(event) or ""
+                return ("Agent is running — wait or /stop first, then "
+                        "use /plan.")
+
             # /goal is safe mid-run for status/pause/clear/wait (inspection
             # and control-plane only — doesn't interrupt the running turn).
             # Setting a new goal text mid-run is rejected with the same
@@ -9219,6 +9229,16 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
 
         if canonical == "topic":
             return await self._handle_topic_command(event)
+
+        if canonical == "plan":
+            _plan_reply = await self._handle_plan_command(event)
+            if _plan_reply is not None:
+                return _plan_reply
+            # event.text was rewritten (plan invocation / approved-execute
+            # instruction). Clear `command` so the bundle/skill fallthroughs
+            # below don't re-dispatch the shadowed `plan` skill command —
+            # then fall through to normal agent processing.
+            command = None
         
         if canonical == "help":
             return await self._handle_help_command(event)
@@ -10273,7 +10293,23 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
 
         # Build the context prompt to inject
         context_prompt = build_session_context_prompt(context, redact_pii=_redact_pii)
-        
+
+        # Plan mode: while PLANNING/READY, prepend a one-line reminder so
+        # ordinary feedback messages keep the model planning (ordinary
+        # conversation content — never the system prompt; cache-safe).
+        try:
+            from agent.execution_policy import ExecutionPolicyStore, ExecutionPosture
+            from agent.plan_mode import build_plan_reminder
+            _plan_policy = ExecutionPolicyStore().load(
+                getattr(session_entry, "session_id", "") or ""
+            )
+            if _plan_policy.posture is ExecutionPosture.PLAN:
+                context_prompt = (
+                    build_plan_reminder(_plan_policy) + "\n\n" + context_prompt
+                )
+        except Exception:
+            logger.debug("plan-mode reminder injection failed", exc_info=True)
+
         # If the previous session expired and was auto-reset, prepend a notice
         # so the agent knows this is a fresh conversation (not an intentional /reset).
         if _was_auto_reset:

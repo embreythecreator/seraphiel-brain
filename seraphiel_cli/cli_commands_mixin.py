@@ -1954,6 +1954,37 @@ class CLICommandsMixin:
             print("   status       Show current browser mode")
             print()
 
+    def _handle_plan_command(self, cmd: str) -> None:
+        """Dispatch /plan subcommands: <task> / status / approve <id> / off."""
+        from cli import _DIM, _RST, _cprint
+        from agent.plan_mode import handle_plan_command
+
+        parts = (cmd or "").strip().split(None, 1)
+        arg = parts[1].strip() if len(parts) > 1 else ""
+
+        session_id = getattr(self, "session_id", "") or ""
+        if not session_id:
+            _cprint(f"  {_DIM}Plan mode unavailable (no active session).{_RST}")
+            return
+
+        runtime_is_codex = (
+            getattr(getattr(self, "agent", None), "api_mode", "")
+            == "codex_app_server"
+        )
+        result = handle_plan_command(
+            arg,
+            session_id,
+            runtime_is_codex=runtime_is_codex,
+            session_db=getattr(self, "_session_db", None),
+        )
+        if result.reply is not None:
+            for line in result.reply.splitlines():
+                _cprint(f"  {line}")
+            return
+        # Rewritten message (plan invocation / approved-execute): send it
+        # through the REPL's normal next-turn path.
+        self._pending_input.put(result.rewritten_message or "")
+
     def _handle_goal_command(self, cmd: str) -> None:
         """Dispatch /goal subcommands: set / draft / show / status / pause / resume / clear."""
         from cli import _DIM, _RST, _cprint

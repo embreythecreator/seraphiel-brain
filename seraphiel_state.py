@@ -5808,6 +5808,77 @@ class SessionDB:
             )
         self._execute_write(_do)
 
+    # ------------------------------------------------------------------
+    # Execution policy (plan mode) — session-scoped posture state.
+    #
+    # Like the Telegram topic tables, this side table is created lazily on
+    # first write (/plan opt-in) so ordinary startup never mutates schema.
+    # The policy is a JSON blob so future postures can add fields without
+    # a migration.
+    # ------------------------------------------------------------------
+
+    def _ensure_execution_policy_table(self, conn) -> None:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS execution_policy (
+                session_id TEXT PRIMARY KEY,
+                policy_json TEXT NOT NULL,
+                updated_at REAL NOT NULL
+            )
+            """
+        )
+
+    def get_execution_policy(self, session_id: str) -> Optional[dict]:
+        """Return the stored execution-policy dict for a session, or None."""
+        with self._lock:
+            try:
+                row = self._conn.execute(
+                    "SELECT policy_json FROM execution_policy WHERE session_id = ?",
+                    (str(session_id),),
+                ).fetchone()
+            except sqlite3.OperationalError:
+                return None
+        if row is None:
+            return None
+        raw = row["policy_json"] if isinstance(row, sqlite3.Row) else row[0]
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def set_execution_policy(self, session_id: str, policy: dict) -> None:
+        """Upsert the execution-policy dict for a session."""
+        payload = json.dumps(policy)
+        now = time.time()
+
+        def _do(conn):
+            self._ensure_execution_policy_table(conn)
+            conn.execute(
+                """
+                INSERT INTO execution_policy (session_id, policy_json, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    policy_json = excluded.policy_json,
+                    updated_at = excluded.updated_at
+                """,
+                (str(session_id), payload, now),
+            )
+        self._execute_write(_do)
+
+    def clear_execution_policy(self, session_id: str) -> None:
+        """Delete the execution-policy row for a session (mode off)."""
+        def _do(conn):
+            try:
+                conn.execute(
+                    "DELETE FROM execution_policy WHERE session_id = ?",
+                    (str(session_id),),
+                )
+            except sqlite3.OperationalError:
+                # Table never created — nothing to clear.
+                pass
+        self._execute_write(_do)
+
 
 class AsyncSessionDB:
     """Async door onto SessionDB: offloads each call via asyncio.to_thread so a blocking SQLite call never freezes the event loop. Generic forwarder — the audit confirms no method returns a live cursor/generator."""

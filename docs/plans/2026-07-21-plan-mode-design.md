@@ -1,8 +1,33 @@
 # Plan Mode — runtime-enforced design
 
 **Date:** 2026-07-21
-**Status:** Approved design, pre-implementation
+**Status:** REV B — revised per Codex review, IMPLEMENTED same day
 **Origin:** Operator request + Codex second-look; builds on existing prompt-only `skills/software-development/plan` skill.
+
+> **Rev B changes (all Codex-review objections verified against the code
+> and adopted; superseded rev-A text below is kept for history):**
+> - Enforcement is a session-scoped **ExecutionPolicy** with a NON-halting
+>   deny at both tool-executor dispatch paths (`agent/execution_policy.py`,
+>   riding the plugin-block seam) — NOT a guardrail block, which halts the
+>   whole turn.
+> - State is a **state machine persisted in SessionDB**
+>   (`OFF → PLANNING → READY(plan_id, rev, digest) → EXECUTING(one armed
+>   turn) → OFF`), not a bool on the agent — the API path builds a fresh
+>   agent per request.
+> - **Terminal/exec fully blocked** in plan mode (no prefix allowlist —
+>   `ls $(touch x)` defeats it).
+> - **No generic write_file**: a host-owned `save_plan(title, content)`
+>   tool generates the path under `.seraphiel/plans/`, records revision +
+>   sha256 digest. Always registered, policy-denied outside plan mode
+>   (prompt-cache-safe).
+> - Approval is **`/plan approve <short-id>`** (bare `approve` collides
+>   with the dangerous-command `/approve` built-in), validates id+digest,
+>   one-use, unlocks exactly one turn.
+> - **codex_app_server runtime fails closed** (bypasses the tool executor).
+> - Built-in `/plan` shadows the skill's auto-registered command; on Slack
+>   it routes via `/seraphiel plan` (50-slash cap).
+> - Broader axes model (posture × reasoning × council × organ) accepted as
+>   direction; v1 ships the PLAN posture only on an extensible enum.
 
 ## Goal
 

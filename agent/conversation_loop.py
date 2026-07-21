@@ -616,12 +616,56 @@ def run_conversation(
     # over instead of spinning. Reset here so each turn starts fresh. See #26080.
     agent._auth_pool_refresh_counts = {}
 
+    # Execution policy (plan mode): load fresh from the session store every
+    # turn — gateway/API surfaces build a fresh agent per request, so agent
+    # attributes cannot carry the mode. load_for_turn also consumes the
+    # one-use "armed" approval and reconciles stale EXECUTING state.
+    from agent.execution_policy import ExecutionPolicyStore, ExecutionPosture
+    agent._execution_policy = ExecutionPolicyStore(
+        getattr(agent, "_session_db", None)
+    ).load_for_turn(agent.session_id or "", turn_id=turn_id or "")
+
     # Optional opt-in runtime: if api_mode == codex_app_server, hand the
     # turn to the codex app-server subprocess (terminal/file ops/patching
     # all run inside Codex). Default Seraphiel path is bypassed entirely.
     # See agent/transports/codex_app_server_session.py for the adapter
     # and references/codex-app-server-runtime.md for the rationale.
     if agent.api_mode == "codex_app_server":
+        # Fail closed: Codex executes tools natively, bypassing the tool
+        # executor where plan mode is enforced. Refuse rather than run
+        # unenforced.
+        if agent._execution_policy.posture is ExecutionPosture.PLAN:
+            final_response = (
+                "Plan mode cannot be enforced under the codex_app_server "
+                "runtime (tools run inside Codex, bypassing the tool "
+                "executor). Use /plan off, or switch runtime before "
+                "planning."
+            )
+            _turn_exit_reason = "plan_mode_codex_refused"
+            messages.append({"role": "assistant", "content": final_response})
+            agent._safe_print(f"\n{final_response}\n")
+            if agent.stream_delta_callback:
+                try:
+                    agent.stream_delta_callback(final_response)
+                    agent.stream_delta_callback(None)
+                except Exception:
+                    pass
+            from agent.turn_finalizer import finalize_turn
+            return finalize_turn(
+                agent,
+                final_response=final_response,
+                api_call_count=api_call_count,
+                interrupted=interrupted,
+                failed=failed,
+                messages=messages,
+                conversation_history=conversation_history,
+                effective_task_id=effective_task_id,
+                turn_id=turn_id,
+                user_message=user_message,
+                original_user_message=original_user_message,
+                _should_review_memory=_should_review_memory,
+                _turn_exit_reason=_turn_exit_reason,
+            )
         return agent._run_codex_app_server_turn(
             user_message=user_message,
             original_user_message=original_user_message,

@@ -95,6 +95,9 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("snapshot", "Create or restore state snapshots of Seraphiel config/state", "Session",
                cli_only=True, aliases=("snap",), args_hint="[create|restore <id>|prune]"),
     CommandDef("stop", "Kill all running background processes", "Session"),
+    CommandDef("plan", "Plan mode: explore read-only, save a plan, execute after approval", "Session",
+               args_hint="<task> | status | off | approve <id>",
+               subcommands=("status", "off", "approve")),
     CommandDef("approve", "Approve a pending dangerous command", "Session",
                gateway_only=True, args_hint="[session|always]"),
     CommandDef("deny", "Deny a pending dangerous command", "Session",
@@ -1163,7 +1166,7 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 #   - moa: high-cost slash mode, available through /seraphiel moa to avoid
 #     displacing existing native Slack slash commands at the 50-command cap.
 #   - debug: the log/report upload surface; reached via /seraphiel debug on Slack.
-_SLACK_VIA_SERAPHIEL_ONLY = frozenset({"credits", "billing", "moa", "debug"})
+_SLACK_VIA_SERAPHIEL_ONLY = frozenset({"credits", "billing", "moa", "debug", "plan"})
 
 
 def _sanitize_slack_name(raw: str) -> str:

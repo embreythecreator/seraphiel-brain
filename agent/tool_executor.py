@@ -31,6 +31,7 @@ from agent.display import (
     _detect_tool_failure,
 )
 from agent.tool_guardrails import ToolGuardrailDecision
+from agent.execution_policy import policy_deny_message
 from agent.tool_dispatch_helpers import (
     _is_destructive_command,
     _is_multimodal_tool_result,
@@ -411,6 +412,25 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
                 status="blocked",
                 error_type="tool_scope_block",
                 error_message=_ts_scope_block,
+                middleware_trace=list(middleware_trace),
+            )
+        elif (_policy_msg := policy_deny_message(
+            getattr(agent, "_execution_policy", None), function_name
+        )) is not None:
+            # Execution-policy deny (plan mode): non-halting — synthesize an
+            # error result for this call only; other calls in the batch and
+            # the turn itself continue (blocked_by_guardrail stays False).
+            block_result = json.dumps({"error": _policy_msg}, ensure_ascii=False)
+            _emit_terminal_post_tool_call(
+                agent,
+                function_name=function_name,
+                function_args=function_args,
+                result=block_result,
+                effective_task_id=effective_task_id,
+                tool_call_id=getattr(tool_call, "id", "") or "",
+                status="blocked",
+                error_type="execution_policy_block",
+                error_message=_policy_msg,
                 middleware_trace=list(middleware_trace),
             )
         else:
@@ -1026,6 +1046,13 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
         if _ts_scope_block is not None:
             _block_msg = _ts_scope_block
             _block_error_type = "tool_scope_block"
+        elif (_policy_msg := policy_deny_message(
+            getattr(agent, "_execution_policy", None), function_name
+        )) is not None:
+            # Execution-policy deny (plan mode): non-halting — rides the
+            # plugin-block synthesis below; the turn continues.
+            _block_msg = _policy_msg
+            _block_error_type = "execution_policy_block"
         else:
             try:
                 from seraphiel_cli.plugins import get_pre_tool_call_block_message

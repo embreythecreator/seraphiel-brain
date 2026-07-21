@@ -65,7 +65,7 @@ from prompt_toolkit.layout.processors import Processor, Transformation, Password
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.menus import CompletionsMenu
-from prompt_toolkit.widgets import TextArea
+from prompt_toolkit.widgets import TextArea, SearchToolbar
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import print_formatted_text as _pt_print
 from prompt_toolkit.formatted_text import ANSI as _PT_ANSI
@@ -1958,6 +1958,18 @@ def _hex_to_ansi(hex_color: str, *, bold: bool = False) -> str:
     _maybe_remap_for_light_mode + _LIGHT_MODE_REMAP).
     """
     hex_color = _maybe_remap_for_light_mode(hex_color)
+    # ponytail: skins may use Rich color names ("grey50", "default"), not just
+    # hex — resolve them instead of falling back to gold.
+    if hex_color == "default":
+        return "\033[1m" if bold else ""
+    if not hex_color.startswith("#"):
+        try:
+            from rich.color import Color
+            r, g, b = Color.parse(hex_color).get_truecolor()
+            prefix = "1;" if bold else ""
+            return f"\033[{prefix}38;2;{r};{g};{b}m"
+        except Exception:
+            pass
     try:
         r = int(hex_color[1:3], 16)
         g = int(hex_color[3:5], 16)
@@ -3393,19 +3405,16 @@ def _build_compact_banner() -> str:
     if w < 30:
         return f"\n[{title_color}]{tiny_line}[/] [dim {dim_color}]- Seraphiel[/]\n"
 
-    inner = w - 2  # inside the box border
-    bar = "═" * w
-    content_width = inner - 2
+    content_width = w - 4
 
-    # Truncate and pad to fit
-    line1 = line1[:content_width].ljust(content_width)
-    line2 = version_line[:content_width].ljust(content_width)
+    # Truncate to fit
+    line1 = line1[:content_width]
+    line2 = version_line[:content_width]
 
+    # ponytail: borderless, Claude-CLI style — no ╔═╗ box, plain two lines.
     return (
-        f"\n[bold {border_color}]╔{bar}╗[/]\n"
-        f"[bold {border_color}]║[/] [{title_color}]{line1}[/] [bold {border_color}]║[/]\n"
-        f"[bold {border_color}]║[/] [dim {dim_color}]{line2}[/] [bold {border_color}]║[/]\n"
-        f"[bold {border_color}]╚{bar}╝[/]\n"
+        f"\n[bold {title_color}]{line1}[/]\n"
+        f"[dim {dim_color}]{line2}[/]\n"
     )
 
 
@@ -5685,9 +5694,8 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                 self._stream_text_ansi = ""
             if self.show_timestamps:
                 label = f"{label} {datetime.now().strftime('%H:%M')}"
-            w = self._scrollback_box_width()
-            fill = w - 2 - SeraphielCLI._status_bar_display_width(label)
-            _cprint(f"\n{_ACCENT}╭─{label}{'─' * max(fill - 1, 0)}╮{_RST}")
+            # ponytail: borderless, Claude-CLI style — label line, no ╭─╮ box.
+            _cprint(f"\n{_ACCENT}{label}{_RST}")
 
         self._stream_buf += text
 
@@ -5784,10 +5792,9 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
             _cprint(f"{_STREAM_PAD}{_tc}{line}{_RST}" if _tc else f"{_STREAM_PAD}{line}")
             self._stream_buf = ""
 
-        # Close the response box
+        # ponytail: borderless — no closing ╰─╯ line, just a blank separator.
         if self._stream_box_opened:
-            w = self._scrollback_box_width()
-            _cprint(f"{_ACCENT}╰{'─' * (w - 2)}╯{_RST}")
+            _cprint("")
 
     def _reset_stream_state(self) -> None:
         """Reset streaming state before each agent invocation."""
@@ -6510,9 +6517,24 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                     f"    [bold {_accent_hex()}]{('/' + name):<22}[/] [dim]-[/] {_escape(desc)}"
                 )
 
+        _cprint(f"\n  {_BOLD}── Keyboard ──{_RST}")
+        _shortcuts = [
+            ("Move by word", "Ctrl+←/→  (or Esc then B / F)"),
+            ("Jump to line start/end", "Ctrl+A / Ctrl+E"),
+            ("Delete word backward", "Ctrl+W"),
+            ("Undo edit", "Ctrl+_  (Ctrl+/ on most terminals)"),
+            ("Search input history", "Ctrl+R"),
+            ("Previous / next history", "↑ / ↓"),
+            ("New line (multi-line)", "Alt+Enter  (or Ctrl+J)"),
+            ("Draft editor", "Ctrl+G  (Alt+G in VSCode/Cursor)"),
+            ("Click to position cursor", "mouse click  —  Option/Shift+drag to select text"),
+            ("Clear screen", "Ctrl+L"),
+            ("Interrupt / cancel", "Ctrl+C"),
+        ]
+        for _label, _keys in _shortcuts:
+            ChatConsole().print(f"    [bold {_accent_hex()}]{_label:<26}[/] [dim]{_escape(_keys)}[/]")
+
         _cprint(f"\n  {_DIM}Tip: Just type your message to chat with Seraphiel!{_RST}")
-        _cprint(f"  {_DIM}Multi-line: Alt+Enter for a new line{_RST}")
-        _cprint(f"  {_DIM}Draft editor: Ctrl+G (Alt+G in VSCode/Cursor){_RST}")
         if _is_termux_environment():
             _cprint(f"  {_DIM}Attach image: /image {_termux_example_image_path()} or start your prompt with a local image path{_RST}\n")
         else:
@@ -8671,6 +8693,8 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                 # No active run — treat as a normal next-turn message.
                 self._pending_input.put(payload)
                 _cprint(f"  No agent running; queued as next turn: {payload[:80]}{'...' if len(payload) > 80 else ''}")
+        elif canonical == "plan":
+            self._handle_plan_command(cmd_original)
         elif canonical == "goal":
             self._handle_goal_command(cmd_original)
         elif canonical == "moa":
@@ -11996,12 +12020,11 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                     nonlocal _streaming_box_opened
                     if not _streaming_box_opened:
                         _streaming_box_opened = True
-                        w = self._scrollback_box_width(getattr(self.console, "width", 80))
-                        label = " ✶ Seraphiel "
+                        label = "✶ Seraphiel"
                         if self.show_timestamps:
-                            label = f"{label}{datetime.now().strftime('%H:%M')} "
-                        fill = w - 2 - SeraphielCLI._status_bar_display_width(label)
-                        _cprint(f"\n{_ACCENT}╭─{label}{'─' * max(fill - 1, 0)}╮{_RST}")
+                            label = f"{label} {datetime.now().strftime('%H:%M')}"
+                        # ponytail: borderless — label line, no ╭─╮ box.
+                        _cprint(f"\n{_ACCENT}{label}{_RST}")
                     _cprint(f"{_STREAM_PAD}{sentence.rstrip()}")
 
                 tts_thread = threading.Thread(
@@ -12374,25 +12397,24 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                 is_error_response = result and (result.get("failed") or result.get("partial"))
                 already_streamed = self._stream_started and self._stream_box_opened and not is_error_response
                 if use_streaming_tts and _streaming_box_opened and not is_error_response:
-                    # Text was already printed sentence-by-sentence; just close the box
-                    w = self._scrollback_box_width()
-                    _cprint(f"\n{_ACCENT}╰{'─' * (w - 2)}╯{_RST}")
+                    # ponytail: borderless — sentences already printed, just space out.
+                    _cprint("")
                 elif already_streamed:
                     # Response was already streamed token-by-token with box framing;
                     # _flush_stream() already closed the box. Skip Rich Panel.
                     pass
                 else:
+                    # ponytail: borderless, Claude-CLI style — label line + indented
+                    # content, no Panel box.
+                    from rich.padding import Padding
                     _chat_console = ChatConsole()
-                    _chat_console.print(Panel(
+                    _chat_console.print(f"\n[{_resp_color} bold]{label.strip()}[/]")
+                    _chat_console.print(Padding(
                         _render_final_assistant_content(response, mode=self.final_response_markdown),
-                        title=f"[{_resp_color} bold]{label}[/]",
-                        title_align="left",
-                        border_style=_resp_color,
+                        (0, 4),
                         style=_resp_text,
-                        box=rich_box.HORIZONTALS,
-                        padding=(1, 4),
-                        width=self._scrollback_box_width(),
                     ))
+                    _chat_console.print()
 
 
             # Play terminal bell when agent finishes (if enabled).
@@ -12792,6 +12814,7 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
         input_rule_bot,
         voice_status_bar,
         completions_menu,
+        search_toolbar=None,
     ) -> list:
         """Assemble the ordered list of children for the root ``HSplit``.
 
@@ -12817,6 +12840,7 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                 image_bar,
                 input_area,
                 input_rule_bot,
+                search_toolbar,
                 voice_status_bar,
                 completions_menu,
             ] if item is not None
@@ -12864,6 +12888,30 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
             _welcome_text = "Welcome to Seraphiel Brain! Type your message or /help for commands."
             _welcome_color = "#FFF8DC"
         self._console_print(f"[{_welcome_color}]{_welcome_text}[/]")
+
+        # First-run input-keys hint — fires once ever, reusing the same
+        # seen-flag machinery as the OpenClaw residue banner. Surfaces the
+        # send/newline keys (non-obvious in a multiline input) and points at
+        # /help for the full keyboard list.
+        try:
+            from agent.onboarding import is_seen, mark_seen
+            _KEYS_HINT_FLAG = "input_keybindings_hint_v1"
+            if not is_seen(self.config, _KEYS_HINT_FLAG):
+                try:
+                    _hint_color = _welcome_skin.get_color("banner_dim", "#B8860B")
+                except Exception:
+                    _hint_color = "#B8860B"
+                self._console_print(
+                    f"[dim {_hint_color}]✦ Enter sends · Alt+Enter (or Ctrl+J) for a new line · "
+                    f"click to move the cursor · Ctrl+R searches history · /help lists all keys[/]"
+                )
+                try:
+                    from seraphiel_cli.config import get_config_path as _get_cfg_path_keys
+                    mark_seen(_get_cfg_path_keys(), _KEYS_HINT_FLAG)
+                except Exception:
+                    pass  # best-effort — hint will fire again next session
+        except Exception:
+            pass  # hint is non-critical — never break startup
 
         # Warm the /model picker's provider-models cache off-thread during this
         # idle window (banner shown, user about to type). The no-args picker
@@ -13902,12 +13950,19 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
             command_filter=cli_ref._command_available,
             skill_bundles_provider=lambda: get_skill_bundles(),
         )
+        # Ctrl+R reverse-history-search. The emacs default binding for c-r is
+        # already active, but it does nothing without a search field wired to
+        # the input's BufferControl. This toolbar is a zero-height conditional
+        # container that only appears while a search is in progress.
+        search_toolbar = SearchToolbar(ignore_case=True)
+
         input_area = TextArea(
             height=Dimension(min=1, max=8, preferred=1),
             prompt=get_prompt,
             style='class:input-area',
             multiline=True,
             wrap_lines=True,
+            search_field=search_toolbar,
             read_only=Condition(lambda: bool(cli_ref._command_running)),
             history=FileHistory(str(self._history_file)),
             # complete_while_typing fires the completer on every keystroke. The
@@ -14627,6 +14682,7 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
                     input_rule_bot=input_rule_bot,
                     voice_status_bar=voice_status_bar,
                     completions_menu=completions_menu,
+                    search_toolbar=search_toolbar,
                 )
             )
         )
@@ -14712,7 +14768,13 @@ class SeraphielCLI(CLIAgentSetupMixin, CLICommandsMixin):
             key_bindings=kb,
             style=style,
             full_screen=False,
-            mouse_support=False,
+            # Mouse capture lets you click to reposition the cursor and scroll
+            # the input area. The cost: while captured, the terminal's own
+            # click-drag text selection and wheel-scrollback are suppressed —
+            # hold Option (iTerm/macOS) or Shift (most Linux terminals) to
+            # select/copy transcript text. Default on; set display.mouse_support
+            # to false to restore native mouse selection everywhere.
+            mouse_support=bool(CLI_CONFIG.get("display", {}).get("mouse_support", True)),
             **({"output": _cpr_disabled_output} if _cpr_disabled_output is not None else {}),
             # Read from display.cli_refresh_interval (default 0 = disabled).
             # When non-zero, prompt_toolkit redraws the UI on this cadence

@@ -1708,7 +1708,11 @@ class APIServerAdapter(BasePlatformAdapter):
         session, err = self._get_existing_session_or_404(request.match_info["session_id"])
         if err:
             return err
-        return web.json_response({"object": "seraphiel.session", "session": self._session_response(session)})
+        payload = self._session_response(session)
+        payload["plan"] = await asyncio.to_thread(
+            self._plan_block, request.match_info["session_id"]
+        )
+        return web.json_response({"object": "seraphiel.session", "session": payload})
 
     async def _handle_patch_session(self, request: "web.Request") -> "web.Response":
         """PATCH /api/sessions/{session_id} — update client-safe session metadata."""
@@ -1816,6 +1820,63 @@ class APIServerAdapter(BasePlatformAdapter):
         fork = db.get_session(fork_id) or {"id": fork_id, "parent_session_id": source_id}
         return web.json_response({"object": "seraphiel.session", "session": self._session_response(fork)}, status=201)
 
+    def _plan_block(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Client-safe plan-mode state for session/chat responses, or None."""
+        try:
+            from agent.execution_policy import ExecutionPolicyStore, PlanModeState
+            policy = ExecutionPolicyStore().load(session_id)
+        except Exception:
+            return None
+        if policy.state is PlanModeState.OFF:
+            return None
+        return {
+            "state": policy.state.value,
+            "plan_id": policy.plan_id,
+            "short_id": policy.short_id,
+            "revision": policy.revision,
+            "path": policy.plan_path,
+            "task": policy.task,
+        }
+
+    def _apply_plan_mode(self, user_message: str, session_id: str) -> tuple[Optional[str], str]:
+        """Intercept /plan commands and plan-mode reminders for API chat.
+
+        Returns ``(control_reply, effective_user_message)``. A non-None
+        control_reply means no agent run is needed (status/off/usage/
+        rejection replies). Otherwise the returned message is either the
+        original text, a plan-mode invocation, an approved-execution
+        instruction, or the original text prefixed with the plan reminder.
+        """
+        text = (user_message or "").strip()
+        if text.startswith("/plan"):
+            from agent.plan_mode import handle_plan_command
+            runtime_is_codex = False
+            try:
+                from seraphiel_cli.config import load_config
+                from seraphiel_cli import codex_runtime_switch as crs
+                runtime_is_codex = (
+                    crs.get_current_runtime(load_config()) == "codex_app_server"
+                )
+            except Exception:
+                pass
+            result = handle_plan_command(
+                text[len("/plan"):].strip(),
+                session_id,
+                runtime_is_codex=runtime_is_codex,
+            )
+            if result.reply is not None:
+                return result.reply, user_message
+            return None, result.rewritten_message or ""
+        try:
+            from agent.execution_policy import ExecutionPolicyStore, ExecutionPosture
+            from agent.plan_mode import build_plan_reminder
+            policy = ExecutionPolicyStore().load(session_id)
+            if policy.posture is ExecutionPosture.PLAN:
+                return None, build_plan_reminder(policy) + "\n\n" + user_message
+        except Exception:
+            logger.debug("[api_server] plan reminder failed", exc_info=True)
+        return None, user_message
+
     async def _handle_session_chat(self, request: "web.Request") -> "web.Response":
         """POST /api/sessions/{session_id}/chat — one synchronous agent turn."""
         auth_err = self._check_auth(request)
@@ -1837,6 +1898,24 @@ class APIServerAdapter(BasePlatformAdapter):
         system_prompt = body.get("system_message") or body.get("instructions")
         if system_prompt is not None and not isinstance(system_prompt, str):
             return web.json_response(_openai_error("system_message must be a string", code="invalid_system_message"), status=400)
+        plan_reply, user_message = await asyncio.to_thread(
+            self._apply_plan_mode, user_message, session_id
+        )
+        if plan_reply is not None:
+            # /plan control subcommand — synthesized reply, no agent run.
+            headers = {"X-Seraphiel-Session-Id": session_id}
+            if gateway_session_key:
+                headers["X-Seraphiel-Session-Key"] = gateway_session_key
+            return web.json_response(
+                {
+                    "object": "seraphiel.session.chat.completion",
+                    "session_id": session_id,
+                    "message": {"role": "assistant", "content": plan_reply},
+                    "usage": {},
+                    "plan": await asyncio.to_thread(self._plan_block, session_id),
+                },
+                headers=headers,
+            )
         history = self._conversation_history_for_session(session_id)
         result, usage = await self._run_agent(
             user_message=user_message,
@@ -1856,6 +1935,9 @@ class APIServerAdapter(BasePlatformAdapter):
                 "session_id": effective_session_id or session_id,
                 "message": {"role": "assistant", "content": final_response},
                 "usage": usage,
+                "plan": await asyncio.to_thread(
+                    self._plan_block, effective_session_id or session_id
+                ),
             },
             headers=headers,
         )
@@ -1881,6 +1963,10 @@ class APIServerAdapter(BasePlatformAdapter):
         system_prompt = body.get("system_message") or body.get("instructions")
         if system_prompt is not None and not isinstance(system_prompt, str):
             return web.json_response(_openai_error("system_message must be a string", code="invalid_system_message"), status=400)
+
+        _plan_reply, user_message = await asyncio.to_thread(
+            self._apply_plan_mode, user_message, session_id
+        )
 
         loop = asyncio.get_running_loop()
         queue: "asyncio.Queue[Optional[tuple[str, Dict[str, Any]]]]" = asyncio.Queue()
@@ -1926,6 +2012,28 @@ class APIServerAdapter(BasePlatformAdapter):
             try:
                 await queue.put(_event_payload("run.started", {"user_message": {"role": "user", "content": user_message}}))
                 await queue.put(_event_payload("message.started", {"message": {"id": message_id, "role": "assistant"}}))
+                if _plan_reply is not None:
+                    # /plan control subcommand — synthesized reply, no agent
+                    # run. Same event shape as a normal completed turn so
+                    # clients need no special handling.
+                    _plan = await asyncio.to_thread(self._plan_block, session_id)
+                    await queue.put(_event_payload("assistant.completed", {
+                        "session_id": session_id,
+                        "message_id": message_id,
+                        "content": _plan_reply,
+                        "completed": True,
+                        "partial": False,
+                        "interrupted": False,
+                    }))
+                    await queue.put(_event_payload("run.completed", {
+                        "session_id": session_id,
+                        "message_id": message_id,
+                        "completed": True,
+                        "messages": [],
+                        "usage": {},
+                        "plan": _plan,
+                    }))
+                    return
                 history = self._conversation_history_for_session(session_id)
                 result, usage = await self._run_agent(
                     user_message=user_message,
@@ -1953,6 +2061,9 @@ class APIServerAdapter(BasePlatformAdapter):
                     "completed": True,
                     "messages": turn_messages,
                     "usage": usage,
+                    "plan": await asyncio.to_thread(
+                        self._plan_block, effective_session_id
+                    ),
                 }))
             except Exception as exc:
                 logger.exception("[api_server] session chat stream failed")
