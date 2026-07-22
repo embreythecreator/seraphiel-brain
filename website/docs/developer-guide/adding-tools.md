@@ -14,7 +14,7 @@ If you want a personal, project-local, or otherwise custom tool without
 modifying Seraphiel core, use the plugin route instead:
 
 - [Plugins](/user-guide/features/plugins)
-- [Build a Seraphiel Plugin](/guides/build-a-seraphiel-plugin)
+- [Build a Seraphiel Plugin](/developer-guide/plugins)
 
 Default to plugins for most custom tool creation. Only follow this page when
 you explicitly want to ship a new built-in tool in `tools/` and `toolsets.py`.

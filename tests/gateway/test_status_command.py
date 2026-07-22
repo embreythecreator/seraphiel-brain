@@ -673,6 +673,92 @@ async def test_profile_command_reports_custom_root_profile(monkeypatch, tmp_path
 
 
 @pytest.mark.asyncio
+async def test_profile_command_reports_source_stamped_profile(monkeypatch, tmp_path):
+    """On a multiplexed gateway, /profile reports the profile SERVING the
+    source (source.profile — URL prefix / per-credential adapter / room map),
+    not the multiplexer's active profile, which is always the default and
+    made /profile answer "default" in every persona chat."""
+    seraphiel_home = tmp_path / ".seraphiel"
+    profile_home = seraphiel_home / "profiles" / "milo"
+    profile_home.mkdir(parents=True)
+
+    session_entry = SessionEntry(
+        session_key=build_session_key(_make_source()),
+        session_id="sess-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        platform=Platform.TELEGRAM,
+        chat_type="dm",
+    )
+    runner = _make_runner(session_entry)
+    runner.config.multiplex_profiles = True
+    monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
+
+    event = _make_event("/profile")
+    event.source.profile = "milo"
+
+    result = await runner._handle_profile_command(event)
+
+    assert "**Profile:** `milo`" in result
+    assert f"**Home:** `{profile_home}`" in result
+
+
+@pytest.mark.asyncio
+async def test_profile_command_ignores_stamp_when_multiplexing_off(monkeypatch, tmp_path):
+    """Without ``gateway.multiplex_profiles`` a stamped source is ignored:
+    /profile keeps reporting the active profile and the default home,
+    mirroring the multiplex gating in ``_run_agent`` and
+    ``_reset_notice_session_info``."""
+    seraphiel_home = tmp_path / ".seraphiel"
+    profile_home = seraphiel_home / "profiles" / "milo"
+    profile_home.mkdir(parents=True)
+
+    session_entry = SessionEntry(
+        session_key=build_session_key(_make_source()),
+        session_id="sess-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        platform=Platform.TELEGRAM,
+        chat_type="dm",
+    )
+    runner = _make_runner(session_entry)
+    assert runner.config.multiplex_profiles is False
+    monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
+
+    event = _make_event("/profile")
+    event.source.profile = "milo"
+
+    result = await runner._handle_profile_command(event)
+
+    assert "**Profile:** `default`" in result
+    assert f"**Home:** `{seraphiel_home}`" in result
+
+
+@pytest.mark.asyncio
+async def test_profile_command_unstamped_source_unchanged(monkeypatch, tmp_path):
+    """Single-profile behavior is untouched: an unstamped source reports the
+    active profile and the default home."""
+    seraphiel_home = tmp_path / ".seraphiel"
+    seraphiel_home.mkdir()
+
+    session_entry = SessionEntry(
+        session_key=build_session_key(_make_source()),
+        session_id="sess-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        platform=Platform.TELEGRAM,
+        chat_type="dm",
+    )
+    runner = _make_runner(session_entry)
+    monkeypatch.setenv("SERAPHIEL_HOME", str(seraphiel_home))
+
+    result = await runner._handle_profile_command(_make_event("/profile"))
+
+    assert "**Profile:** `default`" in result
+    assert f"**Home:** `{seraphiel_home}`" in result
+
+
+@pytest.mark.asyncio
 async def test_post_delivery_callback_generation_snapshot_happens_after_bind():
     """Regression: the callback_generation snapshot in _process_message_background
     must happen AFTER the handler runs, not before.

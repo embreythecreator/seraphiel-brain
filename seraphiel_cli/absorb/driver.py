@@ -154,30 +154,62 @@ def absorb(repo: str, tag: str, base_ref: str | None = None) -> dict:
             "verify": vres, "ready": rep["ready"]}
 
 
+def worktree_path(repo: str) -> str:
+    """Sidecar worktree where conflicts are resolved — NEVER the live tree.
+
+    The live checkout is the running install (CLI entry point, gateway,
+    launchd services all execute from it); materializing a half-merged tree
+    into it bricks the product until the last conflict is resolved. The
+    sidecar keeps the in-flight absorb fully outside the running install —
+    the live tree only ever changes by the human's final ff-merge of a
+    committed, verified absorb branch.
+    """
+    return os.path.abspath(repo).rstrip(os.sep) + "-absorb"
+
+
+def _live_repo_on(repo: str, branch: str) -> None:
+    if _current_branch(repo) == branch:
+        raise AbsorbRefused(
+            f"the live checkout is on {branch} — the running install must "
+            f"never hold an in-flight absorb. `git checkout main` first; "
+            f"resolution happens in the sidecar worktree (--continue).")
+
+
 def materialize(repo: str) -> str:
-    """--continue: put the merged tree (conflict markers and all) into the
-    working tree on the absorb branch so conflicts can be edited in place."""
+    """--continue: put the merged tree (conflict markers and all) into a
+    sidecar worktree on the absorb branch so conflicts can be edited there.
+    The live working tree is never touched. Idempotent: an existing sidecar
+    with in-progress resolution is reused, never clobbered."""
     st = state(repo)
     if not st:
         raise AbsorbRefused("no absorb in flight — run `seraphiel absorb <tag>` first")
-    if _git(repo, "status", "--porcelain", check=False).stdout.strip():
-        raise AbsorbRefused("working tree is dirty — commit or stash before --continue")
     branch = f"absorb/{st['tag']}"
-    _git(repo, "checkout", "-q", branch)
-    _git(repo, "read-tree", "--reset", "-u", st["merged"])
-    return branch
+    _live_repo_on(repo, branch)
+    wt = worktree_path(repo)
+    if os.path.isdir(wt):
+        if _current_branch(wt) != branch:
+            raise AbsorbRefused(
+                f"{wt} exists but is not a worktree on {branch} — "
+                f"remove it (or `git worktree remove` it) and re-run --continue")
+        return wt
+    _git(repo, "worktree", "add", "-q", wt, branch)
+    _git(wt, "read-tree", "--reset", "-u", st["merged"])
+    return wt
 
 
 def verify_current(repo: str) -> dict:
-    """--verify: snapshot the working tree as the new merged tree when
-    materialized (on the absorb branch), then re-run parity + divergence +
-    the verification battery. Off-branch it re-verifies the stashed tree."""
+    """--verify: snapshot the sidecar worktree as the new merged tree when it
+    exists, then re-run parity + divergence + the verification battery.
+    Without a sidecar it re-verifies the stashed tree."""
     st = state(repo)
     if not st:
         raise AbsorbRefused("no absorb in flight — run `seraphiel absorb <tag>` first")
-    if _current_branch(repo) == f"absorb/{st['tag']}":
-        _git(repo, "add", "-A")
-        merged = _git(repo, "write-tree").stdout.strip()
+    branch = f"absorb/{st['tag']}"
+    _live_repo_on(repo, branch)
+    wt = worktree_path(repo)
+    if os.path.isdir(wt) and _current_branch(wt) == branch:
+        _git(wt, "add", "-A")
+        merged = _git(wt, "write-tree").stdout.strip()
         _git(repo, "config", "--local", "absorb.lastMerged", merged)
     else:
         merged = st["merged"]
@@ -287,9 +319,11 @@ def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
                             "re-run `seraphiel absorb` or --abort first")
     merged = st["merged"]
     branch = f"absorb/{tag}"
-    if _current_branch(repo) == branch:
-        if _git(repo, "diff", "--quiet", merged, check=False).returncode != 0:
-            raise AbsorbRefused("working tree differs from the verified snapshot — "
+    _live_repo_on(repo, branch)
+    wt = worktree_path(repo)
+    if os.path.isdir(wt) and _current_branch(wt) == branch:
+        if _git(wt, "diff", "--quiet", merged, check=False).returncode != 0:
+            raise AbsorbRefused("sidecar worktree differs from the verified snapshot — "
                                 "run `seraphiel absorb --verify` again before --commit")
     theirs = rebrand_tree.build_rebranded_tree(tag, attribution=True)
     rep = parity_report.report(merged, theirs, st["ours_head"], repo=repo)
@@ -302,9 +336,13 @@ def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
     final_tree = _bookkeep_tree(repo, merged, tag, rep, st["ours_head"])
     oid = _git(repo, "commit-tree", final_tree, "-p", st["ours_head"], "-m",
                f"absorb: {tag} (full parity)").stdout.strip()
+    # The branch may be checked out in the sidecar worktree; update-ref would
+    # refuse or desync it, so retire the sidecar first — its content is the
+    # verified snapshot the commit was built from, nothing is lost.
+    if os.path.isdir(wt):
+        _git(repo, "worktree", "remove", "--force", wt, check=False)
+        _git(repo, "worktree", "prune", check=False)
     _git(repo, "update-ref", f"refs/heads/{branch}", oid)
-    if _current_branch(repo) == branch:
-        _git(repo, "reset", "-q", "--hard", oid)   # sync a materialized worktree
     clear_state(repo)
     # The detect cache predates the absorb; left alone it keeps offering the
     # tag that was just absorbed until its TTL expires.
@@ -320,6 +358,9 @@ def abort(repo: str, tag: str | None = None) -> None:
     if not tag:
         raise AbsorbRefused("no absorb in flight and no tag given — nothing to abort")
     branch = f"absorb/{tag}"
+    wt = worktree_path(repo)
+    if os.path.isdir(wt):
+        _git(repo, "worktree", "remove", "--force", wt, check=False)
     if _current_branch(repo) == branch:
         # step off the branch before deleting it; fall back to detached ours-head
         if _git(repo, "checkout", "-q", "-f", "main", check=False).returncode != 0:

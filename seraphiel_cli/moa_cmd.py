@@ -60,6 +60,14 @@ def _pick_slot(current: dict[str, str] | None = None) -> dict[str, str]:
     return {"provider": str(provider.get("slug") or ""), "model": str(model)}
 
 
+def _format_slot(slot: dict[str, Any]) -> str:
+    runtime = f"{slot['provider']}:{slot['model']}"
+    name = str(slot.get("wing") or slot.get("name") or slot.get("role") or "").strip()
+    label = f"{runtime} [{name}]" if name else runtime
+    effort = str(slot.get("reasoning_effort") or "").strip()
+    return f"{label} [reasoning={effort}]" if effort else label
+
+
 def _print_config(config: dict[str, Any]) -> None:
     cfg = normalize_moa_config(config.get("moa") if isinstance(config, dict) else {})
     print("Mixture of Agents presets")
@@ -71,13 +79,9 @@ def _print_config(config: dict[str, Any]) -> None:
         print(f"\n{marker} {name}")
         print("  Reference models:")
         for idx, slot in enumerate(preset["reference_models"], start=1):
-            label = slot.get("wing") or slot.get("name") or slot.get("role")
-            suffix = f"  [{label}]" if label else ""
-            print(f"    {idx}. {slot['provider']}:{slot['model']}{suffix}")
+            print(f"    {idx}. {_format_slot(slot)}")
         agg = preset["aggregator"]
-        label = agg.get("name") or agg.get("role")
-        suffix = f"  [{label}]" if label else ""
-        print(f"  Aggregator: {agg['provider']}:{agg['model']}{suffix}")
+        print(f"  Aggregator: {_format_slot(agg)}")
 
 
 def cmd_moa(args) -> None:

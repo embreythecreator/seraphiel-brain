@@ -1,3 +1,4 @@
+import os
 import subprocess
 import pytest
 from seraphiel_cli.absorb import driver
@@ -142,17 +143,8 @@ def test_materialize_refuses_without_state(tmp_path):
         driver.materialize(repo)
 
 
-def test_materialize_refuses_dirty_tree(tmp_path):
-    repo = _mkrepo(tmp_path)
-    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
-    (tmp_path / "r" / "a.txt").write_text("dirty\n")
-    with pytest.raises(driver.AbsorbRefused, match="dirty"):
-        driver.materialize(repo)
-
-
-def test_materialize_checks_out_merged_tree(tmp_path):
-    repo = _mkrepo(tmp_path)
-    # build a "merged" tree with a conflict-marker file, stash it as state
+def _arm_merged_state(repo, tmp_path):
+    """Stash a merged tree (with a conflict-marker file) as in-flight state."""
     (tmp_path / "r" / "a.txt").write_text("<<<<<<< ours\nX\n=======\nY\n>>>>>>> theirs\n")
     _git(repo, "add", "-A")
     merged = subprocess.run(["git", "-C", repo, "write-tree"],
@@ -164,21 +156,45 @@ def test_materialize_checks_out_merged_tree(tmp_path):
     _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
     _git(repo, "config", "--local", "absorb.lastMerged", merged)
     _git(repo, "config", "--local", "absorb.oursHead", head)
-    branch = driver.materialize(repo)
-    assert branch == "absorb/v2026.7.0"
-    assert "<<<<<<<" in (tmp_path / "r" / "a.txt").read_text()
+    return merged, head
+
+
+def test_materialize_uses_sidecar_and_never_touches_live_tree(tmp_path):
+    repo = _mkrepo(tmp_path)
+    _arm_merged_state(repo, tmp_path)
+    wt = driver.materialize(repo)
+    assert wt == driver.worktree_path(repo)
+    # conflict markers land in the sidecar, the live tree stays pristine
+    assert "<<<<<<<" in open(os.path.join(wt, "a.txt")).read()
+    assert (tmp_path / "r" / "a.txt").read_text() == "hello\n"
+    # idempotent: a second --continue reuses the sidecar, never clobbers edits
+    open(os.path.join(wt, "a.txt"), "w").write("resolving...\n")
+    assert driver.materialize(repo) == wt
+    assert open(os.path.join(wt, "a.txt")).read() == "resolving...\n"
+
+
+def test_materialize_refuses_live_repo_on_absorb_branch(tmp_path):
+    repo = _mkrepo(tmp_path)
+    _arm_merged_state(repo, tmp_path)
+    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
+    with pytest.raises(driver.AbsorbRefused, match="live checkout"):
+        driver.materialize(repo)
+
+
+def test_verify_current_refuses_live_repo_on_absorb_branch(tmp_path):
+    repo = _mkrepo(tmp_path)
+    _arm_merged_state(repo, tmp_path)
+    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
+    with pytest.raises(driver.AbsorbRefused, match="live checkout"):
+        driver.verify_current(repo)
 
 
 def test_verify_current_snapshots_resolved_tree(tmp_path, monkeypatch):
     repo = _mkrepo(tmp_path)
-    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
-                          capture_output=True, text=True, check=True).stdout.strip()
-    _git(repo, "branch", "absorb/v2026.7.0")
-    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
-    (tmp_path / "r" / "a.txt").write_text("resolved\n")
-    _git(repo, "config", "--local", "absorb.lastTag", "v2026.7.0")
+    _arm_merged_state(repo, tmp_path)
+    wt = driver.materialize(repo)
+    open(os.path.join(wt, "a.txt"), "w").write("resolved\n")
     _git(repo, "config", "--local", "absorb.lastMerged", "0" * 40)
-    _git(repo, "config", "--local", "absorb.oursHead", head)
     monkeypatch.setattr(driver.rebrand_tree, "build_rebranded_tree",
                         lambda ref, attribution=True: "unused-theirs")
     fake_rep = {"ready": True, "conflicts": [], "stray": [],
@@ -354,16 +370,31 @@ def test_commit_refuses_parity_not_ready(tmp_path, monkeypatch):
         driver.commit(repo)
 
 
-def test_commit_syncs_materialized_worktree(tmp_path, monkeypatch):
+def test_commit_refuses_live_repo_on_absorb_branch(tmp_path, monkeypatch):
     repo = _mkrepo_book(tmp_path)
     _arm_state(repo)
     _git(repo, "checkout", "-q", "absorb/v2026.7.0")
     _stub_parity(monkeypatch)
+    with pytest.raises(driver.AbsorbRefused, match="live checkout"):
+        driver.commit(repo)
+
+
+def test_commit_retires_sidecar_and_updates_branch(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    wt = driver.materialize(repo)
+    assert os.path.isdir(wt)
+    _stub_parity(monkeypatch)
     oid = driver.commit(repo)
-    cur = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
-                         capture_output=True, text=True, check=True).stdout.strip()
-    assert cur == oid   # working tree reset --hard onto the finalized commit
-    assert 'version = "0.18.0"' in (tmp_path / "r" / "pyproject.toml").read_text()
+    assert not os.path.isdir(wt)   # sidecar retired after commit
+    branch_oid = subprocess.run(
+        ["git", "-C", repo, "rev-parse", "absorb/v2026.7.0"],
+        capture_output=True, text=True, check=True).stdout.strip()
+    assert branch_oid == oid       # branch ref carries the finalized commit
+    # live tree untouched — installing the update is the human's ff-merge
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    assert head != oid
 
 
 def test_changelog_insert_between_sections_keeps_blank_lines():
@@ -409,11 +440,11 @@ def test_cli_continue_reports_refusal(capsys, tmp_path, monkeypatch):
     assert "no absorb in flight" in capsys.readouterr().out
 
 
-def test_commit_refuses_unverified_edits_on_branch(tmp_path, monkeypatch):
+def test_commit_refuses_unverified_edits_in_sidecar(tmp_path, monkeypatch):
     repo = _mkrepo_book(tmp_path)
     _arm_state(repo)
-    _git(repo, "checkout", "-q", "absorb/v2026.7.0")
-    (tmp_path / "r" / "pyproject.toml").write_text("tampered\n")
+    wt = driver.materialize(repo)
+    open(os.path.join(wt, "pyproject.toml"), "w").write("tampered\n")
     _stub_parity(monkeypatch)
     with pytest.raises(driver.AbsorbRefused, match="verified snapshot"):
         driver.commit(repo)

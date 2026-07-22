@@ -28,14 +28,25 @@
         packages =
           with pkgs;
           [
+            (pkgs.runCommand "seraphiel" { } ''
+              mkdir -p $out/bin
+              install -Dm755 ${../seraphiel} $out/bin/seraphiel
+            '')
+            (pkgs.runCommand "dev-sandbox" { } ''
+              mkdir -p $out/bin
+              install -Dm755 ${../scripts/dev-sandbox.sh} $out/bin/sandbox
+            '')
             uv
           ]
           ++ self'.packages.default.passthru.devDeps;
         shellHook = ''
-          echo "Seraphiel Brain dev shell"
           ${combinedNonNpm}
           ${seraphielNpmLib.mkNpmDevShellHook npmPackageJsonPaths}
-          echo "Ready. Run 'seraphiel' to start."
+
+          # for the devshell to pick up the src
+          export SERAPHIEL_PYTHON_SRC_ROOT=$(git rev-parse --show-toplevel)
+          echo "Seraphiel Brain dev shell in $SERAPHIEL_PYTHON_SRC_ROOT"
+          echo "Ready. Run 'seraphiel' or 'sandbox seraphiel' to start."
         '';
       };
     };

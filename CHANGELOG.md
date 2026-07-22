@@ -29,6 +29,11 @@ Seraphiel Brain follows an independent version line (see `UPSTREAM_BASE.md`).
 - The brand glyph swap (⚕→✶) is selective and intentionally NOT part of the mechanical
   rename transform — it is genuine divergence preserved by the merge.
 
+## [0.20.0] — 2026-07-22
+
+### Absorbed
+- **hermes-agent `v2026.7.1` → `v2026.7.20`** (full parity): re-added 921, removed 122, divergence 123 files.
+
 ## [0.19.0] — 2026-07-02
 
 ### Absorbed

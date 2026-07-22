@@ -68,6 +68,7 @@ seraphiel model          # Choose your LLM provider and model
 seraphiel tools          # Configure which tools are enabled
 seraphiel gateway setup  # Set up messaging platforms
 seraphiel config set     # Set individual config values
+seraphiel config get     # Inspect individual config values
 seraphiel setup          # Or run the full setup wizard to configure everything at once
 ```
 

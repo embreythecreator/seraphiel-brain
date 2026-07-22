@@ -257,7 +257,7 @@ acme-inference = "acme_seraphiel_plugin:register"
 
 …where `acme_seraphiel_plugin:register` is a function that calls `register_provider(profile)`. The general PluginManager picks up entry-point plugins during `discover_and_load()`. For `kind: model-provider` pip plugins, you still need to declare the kind in your manifest (or rely on the source-text heuristic).
 
-See [Building a Seraphiel Plugin](/guides/build-a-seraphiel-plugin#distribute-via-pip) for the full entry-points setup.
+See [Building a Seraphiel Plugin](/developer-guide/plugins#distribute-via-pip) for the full entry-points setup.
 
 ## Related pages
 
@@ -265,4 +265,4 @@ See [Building a Seraphiel Plugin](/guides/build-a-seraphiel-plugin#distribute-vi
 - [Adding Providers](/developer-guide/adding-providers) — end-to-end checklist for new inference backends (covers both the fast plugin path and the full CLI/auth integration)
 - [Memory Provider Plugins](/developer-guide/memory-provider-plugin)
 - [Context Engine Plugins](/developer-guide/context-engine-plugin)
-- [Building a Seraphiel Plugin](/guides/build-a-seraphiel-plugin) — general plugin authoring
+- [Building a Seraphiel Plugin](/developer-guide/plugins) — general plugin authoring

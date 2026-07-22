@@ -1,0 +1,126 @@
+/**
+ * backend-probes.ts
+ *
+ * Cheap "does this candidate backend actually work" checks used by
+ * resolveSeraphielBackend (main.ts). The resolver walks a ladder of
+ * candidates -- bootstrap marker, `seraphiel` on PATH, system Python with
+ * seraphiel_cli installed -- and historically returned the first candidate
+ * whose binary existed on disk. That assumption breaks when a user has
+ * a pre-installed Python 3.11-3.13 (so findSystemPython() returns a
+ * path) but no seraphiel_cli in its site-packages: the resolver hands back
+ * a backend the spawn step can't actually run, and the user gets a
+ * dead-on-arrival "ModuleNotFoundError: No module named 'seraphiel_cli'"
+ * instead of the first-launch installer.
+ *
+ * These probes give the resolver a way to verify a candidate before
+ * trusting it. Failure (non-zero exit, exception, timeout) means "skip
+ * this rung, try the next one"; success means "spawn this for real."
+ * Falling off the bottom of the ladder lands on the bootstrap-needed
+ * sentinel, which is exactly what we want when nothing pre-existing
+ * actually works.
+ *
+ * Both probes are deliberately fast and forgiving:
+ *   - 5s timeout (a hung interpreter beats forever, but we still give
+ *     slow disks / cold caches room to breathe)
+ *   - stdio ignored (we only care about exit code; stdout/stderr are
+ *     not surfaced to the user, just to recentSeraphielLog for forensics
+ *     via the caller's catch block if it chooses)
+ *   - any throw -> false (never propagate -- resolver wants a boolean)
+ *
+ * Kept in a standalone ts module so it can be unit-tested with
+ * `node --test` without dragging in the electron runtime (same pattern
+ * as bootstrap-platform.ts and hardening.ts).
+ */
+
+import { execFileSync } from 'node:child_process'
+
+const PROBE_TIMEOUT_MS = 5000
+
+/**
+ * Return the Python snippet used to verify Seraphiel can import far enough to
+ * launch the CLI. Kept exported for tests so dependency regressions are
+ * caught without needing a real broken venv fixture.
+ *
+ * @returns {string}
+ */
+function seraphielRuntimeImportProbe() {
+  return 'import yaml; import dotenv; import seraphiel_cli.config'
+}
+
+/**
+ * Return true iff the Seraphiel runtime import probe exits 0.
+ *
+ * Used to gate the "fallback to system Python with seraphiel_cli installed"
+ * rung of resolveSeraphielBackend. Without this, a system Python 3.11-3.13
+ * registered in PEP 514 makes findSystemPython() succeed regardless of
+ * whether seraphiel_cli has actually been pip-installed into its
+ * site-packages -- and the resolver returns a backend that immediately
+ * dies on spawn.
+ *
+ * The probe intentionally imports seraphiel_cli.config, not just the top-level
+ * package: a broken/empty Windows launcher venv can still see the source tree
+ * through PYTHONPATH but lack PyYAML, then die on the first real CLI import.
+ *
+ * @param {string} pythonPath - Absolute path to a python.exe / python.
+ * @param {object} [opts.env] - Additional environment for the probe.
+ * @returns {boolean}
+ */
+function canImportSeraphielCli(pythonPath: string, opts: { env?: Record<string, string> } = {}) {
+  if (!pythonPath) {
+    return false
+  }
+
+  try {
+    execFileSync(pythonPath, ['-c', seraphielRuntimeImportProbe()], {
+      env: { ...process.env, ...(opts.env || {}) },
+      stdio: 'ignore',
+      timeout: PROBE_TIMEOUT_MS,
+      windowsHide: true
+    })
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Return true iff `<seraphielCommand> --version` exits 0.
+ *
+ * Used to gate the "existing `seraphiel` on PATH" rung. Without this, a
+ * stale seraphiel.cmd shim left behind by an uninstalled pip install (or
+ * a half-built venv whose `seraphiel` entry-point points at a deleted
+ * Python) survives findOnPath() and gets selected as the backend.
+ *
+ * We intentionally avoid invoking the command with the dashboard args
+ * here -- `--version` is the cheapest "is this binary alive" smoke
+ * test that every seraphiel_cli entry-point has supported since 0.1.
+ *
+ * @param {string} seraphielCommand - Resolved absolute path to a seraphiel
+ *   executable (or an interpreter+script wrapper).
+ * @param {boolean} [opts.shell] - Whether to run through a shell. For
+ *   .cmd/.bat shims on Windows execFileSync needs shell:true to find
+ *   the cmd interpreter; mirrors the same flag isCommandScript() drives
+ *   in resolveSeraphielBackend.
+ * @returns {boolean}
+ */
+function verifySeraphielCli(seraphielCommand: string, opts?: { shell?: boolean }) {
+  if (!seraphielCommand) {
+    return false
+  }
+
+  try {
+    execFileSync(seraphielCommand, ['--version'], {
+      stdio: 'ignore',
+      timeout: PROBE_TIMEOUT_MS,
+      shell: Boolean(opts?.shell),
+      windowsHide: true
+    })
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+export { canImportSeraphielCli, seraphielRuntimeImportProbe, PROBE_TIMEOUT_MS, verifySeraphielCli }

@@ -287,6 +287,23 @@ if [ -d "$SERAPHIEL_HOME/cron" ]; then
     chown_seraphiel_tree "$SERAPHIEL_HOME/cron"
 fi
 
+# Always reset ownership of pairing data on every boot, same docker-exec/
+# root-write reason as profiles/ and cron/. `docker exec <container>
+# seraphiel pairing approve …` defaults to uid=0 and writes 0600 root-owned
+# approval files that the unprivileged seraphiel gateway cannot read,
+# silently leaving the approved user unauthorized (#10270). The targeted
+# data-volume chown above only runs when the top-level $SERAPHIEL_HOME is
+# mis-owned, so warm boots skip it — this block makes a container restart
+# self-heal. Tiny directory (a handful of small JSON files), so the cost
+# is negligible.
+if [ -d "$SERAPHIEL_HOME/platforms/pairing" ]; then
+    chown_seraphiel_tree "$SERAPHIEL_HOME/platforms/pairing"
+fi
+# Legacy location (pre-consolidated layout).
+if [ -d "$SERAPHIEL_HOME/pairing" ]; then
+    chown_seraphiel_tree "$SERAPHIEL_HOME/pairing"
+fi
+
 # Reset ownership of seraphiel-owned top-level state files on every boot.
 # The targeted data-volume chown above only covers seraphiel-owned
 # *subdirectories*; loose state files living directly under $SERAPHIEL_HOME
@@ -423,6 +440,32 @@ if [ ! -f "$SERAPHIEL_HOME/auth.json" ] && [ -n "${SERAPHIEL_AUTH_JSON_BOOTSTRAP
         printf '%s' "$SERAPHIEL_AUTH_JSON_BOOTSTRAP" > "$SERAPHIEL_HOME/auth.json"
         chown seraphiel:seraphiel "$SERAPHIEL_HOME/auth.json" 2>/dev/null || true
         chmod 600 "$SERAPHIEL_HOME/auth.json"
+    fi
+fi
+
+# auth.json: re-seed a TERMINALLY-DEAD Nous bootstrap session (self-heal).
+#
+# The [ ! -f ] guard above deliberately refuses to clobber an existing
+# auth.json, so a container whose Nous bootstrap session took a terminal
+# invalid_grant (tokens cleared, providers.nous.last_auth_error.relogin_required
+# stamped) can NOT recover from a plain restart — it stays unauthenticated until
+# the credential is replaced. An orchestrator that manages the container can
+# supply a freshly-issued session via SERAPHIEL_AUTH_JSON_REBOOTSTRAP (distinct
+# from the create-only *_BOOTSTRAP var); this helper swaps ONLY the
+# providers.nous entry when the on-disk entry is provably terminal OR the
+# orchestrator seed has a later obtained_at timestamp. The latter covers the
+# stop/update/start sequence where NAS already revoked the still-healthy-looking
+# local session. Older/incomparable seeds remain no-ops, so leaving the env set
+# cannot roll a healthy rotated token backward. Runs as its own stdlib-only
+# subprocess (no app imports) and always exits 0.
+if [ -f "$SERAPHIEL_HOME/auth.json" ] && [ -n "${SERAPHIEL_AUTH_JSON_REBOOTSTRAP:-}" ]; then
+    if refuse_symlinked_path "reseed" "$SERAPHIEL_HOME/auth.json"; then
+        :
+    else
+        s6-setuidgid seraphiel "$INSTALL_DIR/.venv/bin/python" \
+            "$INSTALL_DIR/scripts/docker_rebootstrap_nous_session.py" \
+            "$SERAPHIEL_HOME/auth.json" \
+            || echo "[stage2] Warning: docker_rebootstrap_nous_session.py failed; continuing"
     fi
 fi
 

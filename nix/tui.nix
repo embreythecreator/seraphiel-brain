@@ -1,7 +1,12 @@
 # nix/tui.nix — Seraphiel TUI (Ink/React) compiled with tsc and bundled
 { pkgs, seraphielNpmLib, ... }:
 let
-  npm = seraphielNpmLib.mkNpmPassthru { folder = "ui-tui"; attr = "tui"; pname = "seraphiel-tui"; };
+  npm = seraphielNpmLib.mkNpmPassthru {
+    dirs = [
+      "ui-tui"
+      "apps/shared"
+    ];
+  };
 
   packageJson = builtins.fromJSON (builtins.readFile (npm.src + "/ui-tui/package.json"));
   version = packageJson.version;

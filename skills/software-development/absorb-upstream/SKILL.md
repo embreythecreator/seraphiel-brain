@@ -26,8 +26,9 @@ no-upstream install, STOP: pip/docker installs use `seraphiel update` instead.
    Dry: it never touches `main`, never commits.
 4. If the fidelity GATE fails or a "divergence manifest drifted" refusal appears:
    STOP — `rename_map.py` or `divergence.py` needs a human decision. Do not guess.
-5. If parity shows conflicts: `seraphiel absorb --continue` materializes the merge on
-   the branch. Resolve each file by taking upstream's structure and RE-APPLYING our
+5. If parity shows conflicts: `seraphiel absorb --continue` materializes the merge
+   in a SIDECAR worktree (`<repo>-absorb/`) — the live tree (the running install)
+   is never touched. Resolve each file THERE by taking upstream's structure and RE-APPLYING our
    divergence where the code moved (canonical example: v2026.6.19 moved
    `whatsapp.py` attrs into `whatsapp_common.py`; we kept upstream's mixin and
    re-applied the `✶` glyph there). Then `seraphiel absorb --verify`.

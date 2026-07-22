@@ -41,10 +41,11 @@ let
     extraDependencyGroups:
     callPackage ./python.nix {
       inherit uv2nix pyproject-nix pyproject-build-systems;
+      pythonSrc = seraphielNpmLib.pythonSrc;
       dependency-groups = [ "all" ] ++ extraDependencyGroups;
     };
 
-  seraphielVenv = mkSeraphielVenv extraDependencyGroups;
+  seraphielVenv = (mkSeraphielVenv extraDependencyGroups).venv;
 
   seraphielNpmLib = callPackage ./lib.nix {
     inherit npm-lockfile-fix nodejs;
@@ -60,7 +61,17 @@ let
 
   bundledSkills = lib.cleanSourceWith {
     src = ../skills;
-    filter = path: _type: !(lib.hasInfix "/index-cache/" path);
+    filter =
+      path: _type: !(lib.hasInfix "/index-cache/" path) && !(lib.hasInfix "/__pycache__/" path);
+  };
+
+  # Optional skills are NOT in the wheel (pythonSrc excludes them, see
+  # lib.nix) — the wrapper exposes them via SERAPHIEL_OPTIONAL_SKILLS, the
+  # same mechanism Homebrew packaging uses.
+  bundledOptionalSkills = lib.cleanSourceWith {
+    src = ../optional-skills;
+    filter =
+      path: _type: !(lib.hasInfix "/index-cache/" path) && !(lib.hasInfix "/__pycache__/" path);
   };
 
   # Import bundled plugins (memory, context_engine, platforms/*).  Keeping
@@ -161,28 +172,40 @@ stdenv.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
+    # Symlinks, not copies: these are all store paths already, and the
+    # wrapper env vars just hold paths.  Symlinking keeps this derivation
+    # near-instant when only the venv changed, with an identical closure.
     mkdir -p $out/share/seraphiel-brain $out/bin
-    cp -r ${bundledSkills} $out/share/seraphiel-brain/skills
-    cp -r ${bundledPlugins} $out/share/seraphiel-brain/plugins
-    cp -r ${bundledLocales} $out/share/seraphiel-brain/locales
-    cp -r ${seraphielWeb} $out/share/seraphiel-brain/web_dist
-
-    mkdir -p $out/ui-tui
-    cp -r ${seraphielTui}/lib/seraphiel-tui/* $out/ui-tui/
+    ln -s ${bundledSkills} $out/share/seraphiel-brain/skills
+    ln -s ${bundledOptionalSkills} $out/share/seraphiel-brain/optional-skills
+    ln -s ${bundledPlugins} $out/share/seraphiel-brain/plugins
+    ln -s ${bundledLocales} $out/share/seraphiel-brain/locales
+    ln -s ${seraphielWeb} $out/share/seraphiel-brain/web_dist
+    ln -s ${seraphielTui}/lib/seraphiel-tui $out/ui-tui
 
     ${lib.concatMapStringsSep "\n"
       (name: ''
         makeWrapper ${seraphielVenv}/bin/${name} $out/bin/${name} \
           --suffix PATH : "${runtimePath}" \
           --set SERAPHIEL_BUNDLED_SKILLS $out/share/seraphiel-brain/skills \
+          --set SERAPHIEL_OPTIONAL_SKILLS $out/share/seraphiel-brain/optional-skills \
           --set SERAPHIEL_BUNDLED_PLUGINS $out/share/seraphiel-brain/plugins \
           --set SERAPHIEL_BUNDLED_LOCALES $out/share/seraphiel-brain/locales \
           --set SERAPHIEL_WEB_DIST $out/share/seraphiel-brain/web_dist \
           --set SERAPHIEL_TUI_DIR $out/ui-tui \
           --set SERAPHIEL_PYTHON ${seraphielVenv}/bin/python3 \
-          --set SERAPHIEL_NODE ${lib.getExe nodejs} \
-          ${lib.optionalString (rev != null) ''--set SERAPHIEL_REVISION ${rev} \''}
-          ${lib.optionalString (extraPythonPackages != [ ]) ''--suffix PYTHONPATH : "${pythonPath}"''}
+          --set SERAPHIEL_NODE ${lib.getExe nodejs}${
+            # Fold the line continuation INTO the optionalString: a bare
+            # `\` on the line above an empty expansion would dangle onto a
+            # blank line, ending the makeWrapper command early and running
+            # the next flag as its own shell command (`--suffix: command
+            # not found`). Only reproduces when rev == null (dirty trees).
+            lib.optionalString (rev != null) " \\\n          --set SERAPHIEL_REVISION ${rev}"
+          }${
+            lib.optionalString (
+              extraPythonPackages != [ ]
+            ) " \\\n          --suffix PYTHONPATH : \"${pythonPath}\""
+          }
       '')
       [
         "seraphiel"
@@ -200,32 +223,36 @@ stdenv.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
-  passthru = {
-    inherit
-      seraphielTui
-      seraphielWeb
-      seraphielNpmLib
-      seraphielVenv
-      ;
+  passthru =
+    let
+      devPython = (mkSeraphielVenv (extraDependencyGroups ++ [ "dev" ])).editableVenv;
+    in
+    {
+      inherit
+        seraphielTui
+        seraphielWeb
+        seraphielNpmLib
+        seraphielVenv
+        ;
 
-    # `seraphielDesktop` references `finalAttrs.finalPackage` (this whole
-    # derivation, after all overrides are applied) so the desktop wrapper
-    # can prepend its `/bin` to PATH.  The desktop's resolver step 4
-    # ("existing seraphiel on PATH") then picks up the fully wrapped
-    # `seraphiel` binary — venv with all deps, bundled skills/plugins,
-    # runtime PATH (ripgrep/git/ffmpeg/etc).  No re-implementation
-    # of the agent resolution in the desktop wrapper.
-    seraphielDesktop = callPackage ./desktop.nix {
-      inherit seraphielNpmLib electron;
-      seraphielAgent = finalAttrs.finalPackage;
+      # `seraphielDesktop` references `finalAttrs.finalPackage` (this whole
+      # derivation, after all overrides are applied) so the desktop wrapper
+      # can prepend its `/bin` to PATH.  The desktop's resolver step 4
+      # ("existing seraphiel on PATH") then picks up the fully wrapped
+      # `seraphiel` binary — venv with all deps, bundled skills/plugins,
+      # runtime PATH (ripgrep/git/ffmpeg/etc).  No re-implementation
+      # of the agent resolution in the desktop wrapper.
+      seraphielDesktop = callPackage ./desktop.nix {
+        inherit seraphielNpmLib electron;
+        seraphielAgent = finalAttrs.finalPackage;
+      };
+
+      devShellHook = ''
+        export SERAPHIEL_PYTHON=${devPython}/bin/python3
+      '';
+
+      devDeps = runtimeDeps ++ [ devPython ];
     };
-
-    devShellHook = ''
-      export SERAPHIEL_PYTHON=${seraphielVenv}/bin/python3
-    '';
-
-    devDeps = runtimeDeps ++ [ (mkSeraphielVenv (extraDependencyGroups ++ [ "dev" ])) ];
-  };
 
   meta = with lib; {
     description = "AI agent with advanced tool-calling capabilities";

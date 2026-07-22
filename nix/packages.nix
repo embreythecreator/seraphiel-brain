@@ -58,6 +58,8 @@
         tui = full.seraphielTui;
         web = full.seraphielWeb;
         desktop = full.seraphielDesktop;
+
+        update-npm-lockfile = full.seraphielNpmLib.updateNpmLockfile;
       };
     };
 }

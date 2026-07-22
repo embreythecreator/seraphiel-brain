@@ -36,6 +36,8 @@ ALLOWED_STRAY = ("achievements/LICENSE", "security-guidance/NOTICE",
                  "docs/plans/2026-07-02-brain-absorb-v2.md",
                  "docs/specs/2026-06-29-seraphiel-self-absorb-design.md",
                  "docs/specs/2026-07-03-word-memory-provider.md",
+                 # names the historical WO slug sys_brain_hermes_spine_seating
+                 "docs/specs/2026-07-03-a1-space-action-blocks.md",
                  "skills/software-development/absorb-upstream/",
                  "skills/software-development/self-update/",
                  "tests/seraphiel_cli/test_absorb_")

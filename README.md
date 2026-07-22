@@ -109,6 +109,7 @@ seraphiel              # Interactive CLI — start a conversation
 seraphiel model        # Choose your LLM provider and model
 seraphiel tools        # Configure which tools are enabled
 seraphiel config set   # Set individual config values
+seraphiel config get   # Print individual config values
 seraphiel gateway      # Start the messaging gateway (Telegram, Discord, etc.)
 seraphiel setup        # Run the full setup wizard (configures everything at once)
 seraphiel claw migrate # Migrate from OpenClaw (if coming from OpenClaw)

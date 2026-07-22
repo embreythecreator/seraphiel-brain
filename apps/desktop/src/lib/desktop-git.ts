@@ -1,4 +1,5 @@
 import type {
+  SeraphielGitBaseBranch,
   SeraphielGitBranch,
   SeraphielGitWorktree,
   SeraphielRepoStatus,
@@ -57,6 +58,9 @@ const remoteGit: GitBridge = {
 
   branchList: async repoPath =>
     (await gitGet<{ branches: SeraphielGitBranch[] }>('branches', { path: repoPath })).branches,
+
+  baseBranchList: async repoPath =>
+    (await gitGet<{ branches: SeraphielGitBaseBranch[] }>('base-branches', { path: repoPath })).branches,
 
   repoStatus: repoPath => gitGet<SeraphielRepoStatus | null>('status', { path: repoPath }),
 

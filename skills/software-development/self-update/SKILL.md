@@ -78,7 +78,8 @@ CHANGELOG entry (Brain only).
 cd ~/Oblivion/seraphiel-brain
 seraphiel absorb --check          # ✶ banner line also signals this at launch
 seraphiel absorb <tag>            # merge + gates + auto-verify
-# conflicts? materialize, resolve, re-gate:
+# conflicts? materialize into the sidecar worktree (<repo>-absorb/ —
+# the live/running tree is NEVER touched), resolve there, re-gate:
 seraphiel absorb --continue
 seraphiel absorb --verify
 seraphiel absorb --status         # cold-resume: where am I?

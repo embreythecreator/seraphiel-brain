@@ -302,8 +302,8 @@ upstream relocated the WhatsApp reply prefix into a new `WhatsAppBehaviorMixin`
 ```sh
 seraphiel absorb --status                # resume state, if any
 seraphiel absorb v2026.7.0               # branch + parity + AUTO verify battery
-seraphiel absorb --continue              # materialize conflicts into the working tree
-# ...resolve conflict files in place...
+seraphiel absorb --continue              # materialize conflicts into the sidecar worktree
+# ...resolve conflict files in <repo>-absorb/ — the live tree is never touched...
 seraphiel absorb --verify                # snapshot + re-run parity/divergence/battery
 seraphiel absorb --commit                # human step: guards + bookkeeping + finalize
 seraphiel absorb --abort                 # rollback at any point
