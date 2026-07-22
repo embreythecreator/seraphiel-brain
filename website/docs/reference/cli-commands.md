@@ -88,6 +88,7 @@ seraphiel [global-options] <command> [subcommand/options]
 | `seraphiel desktop` (alias `gui`) | Build and launch the native Electron desktop app. |
 | `seraphiel profile` | Manage profiles — multiple isolated Seraphiel instances. |
 | `seraphiel completion` | Print shell completion scripts (bash/zsh/fish). |
+| `seraphiel hello` | Print a greeting from Seraphiel Brain. |
 | `seraphiel version` | Show version information. |
 | `seraphiel update` | Pull latest code and reinstall dependencies. `--check` previews without installing; `--backup` takes a pre-pull `SERAPHIEL_HOME` snapshot. |
 | `seraphiel uninstall` | Remove Seraphiel from the system. |

@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 # ANSI building blocks for conversation display
 # =========================================================================
 
-_GOLD = "\033[1;38;2;255;215;0m"  # True-color #FFD700 bold
 _BOLD = "\033[1m"
 _DIM = "\033[2m"
 _RST = "\033[0m"
@@ -60,27 +59,25 @@ def _skin_color(key: str, fallback: str) -> str:
 
 from seraphiel_cli import __version__ as VERSION, __release_date__ as RELEASE_DATE
 
-SERAPHIEL_AGENT_LOGO = """[bold #FFD66B]███████╗███████╗██████╗  █████╗ ██████╗ ██╗  ██╗██╗███████╗██╗[/]
-[bold #F5B942]██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██║  ██║██║██╔════╝██║[/]
-[#E8942B]███████╗█████╗  ██████╔╝███████║██████╔╝███████║██║█████╗  ██║[/]
-[#D2691E]╚════██║██╔══╝  ██╔══██╗██╔══██║██╔═══╝ ██╔══██║██║██╔══╝  ██║[/]
-[#B5341B]███████║███████╗██║  ██║██║  ██║██║     ██║  ██║██║███████╗███████╗[/]
-[#8E1F12]╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚══════╝[/]"""
+SERAPHIEL_AGENT_LOGO = """[bold]███████╗███████╗██████╗  █████╗ ██████╗ ██╗  ██╗██╗███████╗██╗[/]
+[bold]██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██║  ██║██║██╔════╝██║[/]
+[bold]███████╗█████╗  ██████╔╝███████║██████╔╝███████║██║█████╗  ██║[/]
+[bold]╚════██║██╔══╝  ██╔══██╗██╔══██║██╔═══╝ ██╔══██║██║██╔══╝  ██║[/]
+[bold]███████║███████╗██║  ██║██║  ██║██║     ██║  ██║██║███████╗███████╗[/]
+[bold]╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚══════╝[/]"""
 
-SERAPHIEL_SIGIL = """[#FFE08A]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⢀⡄⢠⡀⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFE08A]⠀⠀⠀⠀⠀⠀⠀⠀⢀⢀⣴⣿⡿⠁⠈⢿⣿⣦⡀⡀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#F5B942]⠀⠀⠀⠀⠀⠀⠀⢠⣿⣾⣻⡟⠁⠀⠀⠈⢻⣟⣷⣿⡄⠀⠀⠀⠀⠀⠀⠀[/]
-[#F5B942]⠀⠀⠀⠀⠀⠀⢠⣾⣿⡏⣿⡁⠀⠀⠀⠀⢈⣿⢹⣿⣷⡄⠀⠀⠀⠀⠀⠀[/]
-[#E8942B]⠀⠀⠀⠀⠀⠀⢿⣿⣿⡇⣿⣧⡠⠠⠄⢄⣼⣿⢸⣿⣿⡿⠀⠀⠀⠀⠀⠀[/]
-[#E8942B]⠀⠀⠀⠀⠀⠀⠈⢷⢧⠁⠉⠏⣶⣿⣿⣶⠹⠉⠈⡼⡾⠁⠀⠀⠀⠀⠀⠀[/]
-[#D2691E]⢰⣶⣶⣤⣔⣒⣶⣾⣿⡿⠶⠆⠀⠙⠋⠀⠰⠶⢿⣿⣷⣶⣒⣢⣤⣶⣶⡆[/]
-[#D2691E]⣀⣙⡿⣿⣿⣓⡒⠒⠂⠀⠀⣰⠀⢀⡀⠀⣆⠀⠀⠐⠒⢒⣚⣿⣿⢿⣋⣀[/]
-[#B5341B]⠈⠻⠿⣒⣠⠴⣂⣠⠀⢀⣴⣿⣿⣘⣃⣿⣿⣦⡀⠀⣄⣐⠦⣄⣒⠿⠟⠁[/]
-[#B5341B]⠐⠻⠿⠿⠾⣻⣿⣡⡴⢿⣿⣿⣧⡿⢿⣼⣿⣿⡿⢦⣌⣿⣟⠷⠿⠿⠟⠂[/]
-[#8E1F12]⠀⠀⠀⠐⠚⠛⠛⠉⠠⣿⣿⣿⡿⠁⠈⢿⣿⣿⣿⠄⠉⠛⠛⠓⠂⠀⠀⠀[/]
-[#8E1F12]⠀⠀⠀⠀⠀⠀⠀⠀⢔⢿⡿⢻⣿⡇⢸⣿⡟⢿⡿⡢⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#8E1F12]⠀⠀⠀⠀⠀⠀⠀⠀⠱⠛⠁⡼⢹⠁⠈⡏⢧⠈⠛⠎⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#8E1F12]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠇⢸⠀⠀⡇⠸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]"""
+# ponytail: the Face's core-idle singularity orb, rendered to Braille.
+# Plain monochrome (inherits terminal fg) to match the Claude-CLI aesthetic —
+# no gradient. Regenerate from the .webp with scratchpad/orb_to_braille.py.
+SERAPHIEL_SIGIL = """⠀⠀⠀⠀⣴⠁⠀⠀⠀⣀⣤⣶⣶⣶⣶⣦⣄⡀⠀⠀⠀⠘⣆⠀⠀⠀⠀⠀
+⠀⠀⠀⢰⣿⣧⣶⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⣤⣴⣿⡄⠀⠀⠀⠀
+⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀
+⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀
+⠀⠀⠀⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀
+⠀⠀⠀⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠏⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠙⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠁⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠉⠻⠿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"""
 
 
 
@@ -620,7 +617,6 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
             bare model slug.
     """
     from model_tools import check_tool_availability, TOOLSET_REQUIREMENTS
-    from rich.panel import Panel
     from rich.table import Table
     if get_toolset_for_tool is None:
         from model_tools import get_toolset_for_tool
@@ -660,10 +656,12 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
     layout_table.add_column("right", justify="left")
 
     # Resolve skin colors once for the entire banner
-    accent = _skin_color("banner_accent", "#FFBF00")
-    dim = _skin_color("banner_dim", "#B8860B")
-    text = _skin_color("banner_text", "#FFF8DC")
-    session_color = _skin_color("session_border", "#8B8682")
+    # ponytail: monochrome, Claude-CLI style — white headers, grey secondary,
+    # default body. Brand amber removed (a skin can still override these keys).
+    accent = _skin_color("banner_accent", "white")
+    dim = _skin_color("banner_dim", "grey50")
+    text = _skin_color("banner_text", "default")
+    session_color = _skin_color("session_border", "grey50")
 
     # Use skin's custom caduceus art if provided
     try:
@@ -706,7 +704,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         left_lines.append(f"[{accent}]{model_short}[/]{ctx_str} [dim {dim}]·[/] [dim {dim}]Seraphiel[/]")
 
     if os.getenv("SERAPHIEL_YOLO_MODE"):
-        left_lines.append(f"[bold red]⚠ YOLO mode[/] [dim {dim}]— all approval prompts bypassed[/]")
+        left_lines.append(f"[bold]⚠ YOLO mode[/] [dim {dim}]— all approval prompts bypassed[/]")
     left_lines.append(f"[dim {dim}]{cwd}[/]")
     if session_id:
         left_lines.append(f"[dim {session_color}]Session: {session_id}[/]")
@@ -738,9 +736,9 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         colored_names = []
         for name in sorted(tool_names):
             if name in disabled_tools:
-                colored_names.append(f"[red]{name}[/]")
+                colored_names.append(f"[dim]{name}[/]")
             elif name in lazy_tools:
-                colored_names.append(f"[yellow]{name}[/]")
+                colored_names.append(f"[dim]{name}[/]")
             else:
                 colored_names.append(f"[{text}]{name}[/]")
 
@@ -759,9 +757,9 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
                 if name == "...":
                     colored_names.append("[dim]...[/]")
                 elif name in disabled_tools:
-                    colored_names.append(f"[red]{name}[/]")
+                    colored_names.append(f"[dim]{name}[/]")
                 elif name in lazy_tools:
-                    colored_names.append(f"[yellow]{name}[/]")
+                    colored_names.append(f"[dim]{name}[/]")
                 else:
                     colored_names.append(f"[{text}]{name}[/]")
             tools_str = ", ".join(colored_names)
@@ -796,7 +794,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
             elif status == "connecting":
                 right_lines.append(
                     f"[dim {dim}]{srv['name']}[/] [dim]({srv['transport']})[/] "
-                    f"[yellow]— connecting[/]"
+                    f"[dim]— connecting[/]"
                 )
             elif status == "configured":
                 right_lines.append(
@@ -805,8 +803,8 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
                 )
             else:
                 right_lines.append(
-                    f"[red]{srv['name']}[/] [dim]({srv['transport']})[/] "
-                    f"[red]— failed[/]"
+                    f"[dim]{srv['name']}[/] [dim]({srv['transport']})[/] "
+                    f"[dim]— failed[/]"
                 )
 
     right_lines.append("")
@@ -893,17 +891,17 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
             if behind > 0:
                 commits_word = "commit" if behind == 1 else "commits"
                 right_lines.append(
-                    f"[bold yellow]⚠ {behind} {commits_word} behind[/]"
-                    f"[dim yellow] — run [bold]{recommended_update_command()}[/bold] to update[/]"
+                    f"[bold]⚠ {behind} {commits_word} behind[/]"
+                    f"[dim] — run [bold]{recommended_update_command()}[/bold] to update[/]"
                 )
             else:
                 # UPDATE_AVAILABLE_NO_COUNT: nix-built seraphiel; we know an update
                 # exists but not by how much, and we don't know how the user
                 # installed it (nix run, profile, system flake, home-manager).
                 managed_cmd = get_managed_update_command()
-                line = "[bold yellow]⚠ update available[/]"
+                line = "[bold]⚠ update available[/]"
                 if managed_cmd:
-                    line += f"[dim yellow] — run [bold]{managed_cmd}[/bold][/]"
+                    line += f"[dim] — run [bold]{managed_cmd}[/bold][/]"
                 right_lines.append(line)
     except Exception:
         pass  # Never break the banner over an update check
@@ -916,7 +914,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         if _absorb_repo is not None:
             _offer = absorb_offer_line(str(_absorb_repo))
             if _offer:
-                right_lines.append(f"[magenta]{_offer}[/]")
+                right_lines.append(f"[bold]{_offer}[/]")
     except Exception:
         pass  # Never break the banner over the absorb check
 
@@ -944,8 +942,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
     right_content = "\n".join(right_lines)
     layout_table.add_row(left_content, right_content)
 
-    title_color = _skin_color("banner_title", "#FFD700")
-    border_color = _skin_color("banner_border", "#CD7F32")
+    title_color = _skin_color("banner_title", "white")
     version_label = format_banner_version_label()
     release_info = get_latest_release_tag()
     if release_info:
@@ -953,17 +950,14 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         title_markup = f"[bold {title_color}][link={_url}]{version_label}[/link][/]"
     else:
         title_markup = f"[bold {title_color}]{version_label}[/]"
-    outer_panel = Panel(
-        layout_table,
-        title=title_markup,
-        border_style=border_color,
-        padding=(0, 2),
-    )
-
     console.print()
     term_width = shutil.get_terminal_size().columns
     if term_width >= 95:
         _logo = _bskin.banner_logo if _bskin and hasattr(_bskin, 'banner_logo') and _bskin.banner_logo else SERAPHIEL_AGENT_LOGO
         console.print(_logo)
         console.print()
-    console.print(outer_panel)
+    # ponytail: borderless, Claude-CLI style — no outer box. Title is a plain
+    # line above the grid instead of framed in a Panel border.
+    console.print(f"  {title_markup}")
+    console.print()
+    console.print(layout_table)

@@ -164,24 +164,27 @@ class SkinConfig:
 _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
     "default": {
         "name": "default",
-        "description": "Seraphiel — reddish-gold seraph",
+        "description": "Seraphiel — plain monochrome",
         "colors": {
-            "banner_border": "#8E1F12",
-            "banner_title": "#FFD66B",
-            "banner_accent": "#E8942B",
-            "banner_dim": "#B5341B",
-            "banner_text": "#F5E6C8",
-            "ui_accent": "#E8942B",
-            "ui_label": "#C9802B",
-            "ui_ok": "#4caf50",
-            "ui_error": "#ef5350",
-            "ui_warn": "#ffa726",
-            "prompt": "#F5E6C8",
-            "input_rule": "#8E1F12",
-            "response_border": "#D2691E",
-            "status_bar_bg": "#1a1a2e",
-            "session_label": "#C9802B",
-            "session_border": "#8B8682",
+            # ponytail: Claude-CLI plain — terminal fg + grey, no brand color.
+            # Values must parse in BOTH Rich and prompt_toolkit: hex or
+            # "default" only ("grey50"-style Rich names crash pt styles).
+            "banner_border": "#808080",
+            "banner_title": "default",
+            "banner_accent": "default",
+            "banner_dim": "#808080",
+            "banner_text": "default",
+            "ui_accent": "default",
+            "ui_label": "#808080",
+            "ui_ok": "default",
+            "ui_error": "default",
+            "ui_warn": "default",
+            "prompt": "",
+            "input_rule": "#808080",
+            "response_border": "default",
+            "status_bar_bg": "default",
+            "session_label": "#808080",
+            "session_border": "#808080",
         },
         "spinner": {
             # Empty = use hardcoded defaults in display.py

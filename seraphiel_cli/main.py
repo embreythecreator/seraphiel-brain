@@ -422,6 +422,7 @@ from seraphiel_cli.subcommands.backup import build_backup_parser
 from seraphiel_cli.subcommands.import_cmd import build_import_cmd_parser
 from seraphiel_cli.subcommands.config import build_config_parser
 from seraphiel_cli.subcommands.console import build_console_parser
+from seraphiel_cli.subcommands.hello import build_hello_parser
 from seraphiel_cli.subcommands.version import build_version_parser
 from seraphiel_cli.subcommands.update import build_update_parser
 from seraphiel_cli.subcommands.uninstall import build_uninstall_parser
@@ -4618,6 +4619,11 @@ def _print_version_info(*, check_updates: bool = True) -> None:
             print("Up to date")
     except Exception:
         pass
+
+
+def cmd_hello(args):
+    """Print a greeting from Seraphiel Brain."""
+    print("Hello from Seraphiel Brain.")
 
 
 def cmd_version(args):
@@ -15243,6 +15249,11 @@ def main():
     # claw command  (parser built in seraphiel_cli/subcommands/claw.py)
     # =========================================================================
     build_claw_parser(subparsers, cmd_claw=cmd_claw)
+
+    # =========================================================================
+    # hello command  (parser built in seraphiel_cli/subcommands/hello.py)
+    # =========================================================================
+    build_hello_parser(subparsers, cmd_hello=cmd_hello)
 
     # =========================================================================
     # version command  (parser built in seraphiel_cli/subcommands/version.py)

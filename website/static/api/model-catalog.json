@@ -109,6 +109,14 @@
           "description": "recommended"
         },
         {
+          "id": "moonshotai/kimi-k2.6",
+          "description": ""
+        },
+        {
+          "id": "moonshotai/kimi-k2.7-code",
+          "description": ""
+        },
+        {
           "id": "minimax/minimax-m3",
           "description": ""
         },

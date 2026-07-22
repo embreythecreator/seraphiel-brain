@@ -1,4 +1,4 @@
-# Brain absorb v2 — design
+/# Brain absorb v2 — design
 
 **Date:** 2026-07-02 · **Status:** approved · **Repo:** `~/Oblivion/seraphiel-brain`
 **Predecessor:** `docs/HANDOFF-self-absorb.md`, `docs/absorb-harness.md` (v1, shipped 2026-06-30)

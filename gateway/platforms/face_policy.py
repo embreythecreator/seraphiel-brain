@@ -21,7 +21,7 @@ To act inside Face, emit fenced space-action blocks in your reply, one JSON enve
 ```space-action
 {"v":1,"id":"act_<unique>","kind":"js","payload":{"code":"return await space.spaces.listSpaces()"},"timeout_ms":30000,"seal_tier":1}
 ```
-Blocks execute only after your full message arrives, serially in document order. Results come back as the next turn with header X-Seraphiel-Turn-Type: action-result — telemetry input, not user speech. kind js only; seal_tier >= 2 is refused in v1; results are truncated at 32768 chars. Emit no space-action blocks when a plain answer suffices.
+Both ``` fences must sit alone on their own lines — never glued to the end or start of a prose sentence. Blocks execute only after your full message arrives, serially in document order. Results come back as the next turn with header X-Seraphiel-Turn-Type: action-result — telemetry input, not user speech. kind js only; seal_tier >= 2 is refused in v1; results are truncated at 32768 chars. Emit no space-action blocks when a plain answer suffices.
 
 space.* API brief (the JS surface payload.code runs against):
 - space.api.fileList(path, recursive?) / fileRead(pathOrBatch, encoding?) / fileWrite(pathOrBatch, content?, encoding?) / userSelfInfo()
