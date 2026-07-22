@@ -84,7 +84,7 @@ seraphiel absorb --continue
 seraphiel absorb --verify
 seraphiel absorb --status         # cold-resume: where am I?
 # >>> STOP — show the operator the parity report + verify verdict <<<
-seraphiel absorb --commit         # only on explicit human go
+seraphiel absorb --commit         # only on explicit human go — finalizes AND ff-installs to main
 ```
 
 After the human merges `absorb/<tag>` → `main`: the running gateway and

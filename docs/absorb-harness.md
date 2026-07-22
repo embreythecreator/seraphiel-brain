@@ -305,7 +305,7 @@ seraphiel absorb v2026.7.0               # branch + parity + AUTO verify battery
 seraphiel absorb --continue              # materialize conflicts into the sidecar worktree
 # ...resolve conflict files in <repo>-absorb/ — the live tree is never touched...
 seraphiel absorb --verify                # snapshot + re-run parity/divergence/battery
-seraphiel absorb --commit                # human step: guards + bookkeeping + finalize
+seraphiel absorb --commit                # human step: guards + bookkeeping + finalize + ff-install to main
 seraphiel absorb --abort                 # rollback at any point
 ```
 

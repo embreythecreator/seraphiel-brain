@@ -13416,7 +13416,15 @@ def cmd_absorb(args) -> int:
             return 0
         if args.commit:
             oid = driver.commit(repo, args.tag, skip_verify=args.skip_verify)
-            print(f"  ✓ committed {oid} — merge to main when ready (human step)")
+            head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                                  capture_output=True, text=True).stdout.strip()
+            if head == oid:
+                print(f"  ✓ absorbed and INSTALLED — main is at {oid[:12]}. "
+                      f"Restart services to pick it up.")
+            else:
+                print(f"  ✓ committed {oid[:12]} — could not auto-install "
+                      f"(tree busy or not on main). Finish with: "
+                      f"git merge --ff-only {oid[:12]}")
             return 0
         if not args.tag:
             print("  usage: seraphiel absorb <tag> | --check | --gate | --status | "

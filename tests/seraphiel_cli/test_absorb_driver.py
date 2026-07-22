@@ -391,10 +391,23 @@ def test_commit_retires_sidecar_and_updates_branch(tmp_path, monkeypatch):
         ["git", "-C", repo, "rev-parse", "absorb/v2026.7.0"],
         capture_output=True, text=True, check=True).stdout.strip()
     assert branch_oid == oid       # branch ref carries the finalized commit
-    # live tree untouched — installing the update is the human's ff-merge
+    # clean tree on main → auto-installed: one command, fully absorbed
     head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
                           capture_output=True, text=True, check=True).stdout.strip()
-    assert head != oid
+    assert head == oid
+
+
+def test_commit_skips_autoinstall_on_dirty_tracked_file(tmp_path, monkeypatch):
+    repo = _mkrepo_book(tmp_path)
+    _arm_state(repo)
+    edited = tmp_path / "r" / "CHANGELOG.md"
+    edited.write_text(edited.read_text() + "\noperator work in progress\n")
+    _stub_parity(monkeypatch)
+    oid = driver.commit(repo)
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    assert head != oid   # not installed — operator work is never touched
+    assert "operator work in progress" in edited.read_text()
 
 
 def test_changelog_insert_between_sections_keeps_blank_lines():

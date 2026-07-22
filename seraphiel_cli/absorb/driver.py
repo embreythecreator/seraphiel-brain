@@ -348,7 +348,32 @@ def commit(repo: str, tag: str | None = None, skip_verify: bool = False) -> str:
     # tag that was just absorbed until its TTL expires.
     from . import detect
     detect.cache_file(repo).unlink(missing_ok=True)
+    _autoinstall(repo, oid, merged)
     return oid
+
+
+def _autoinstall(repo: str, oid: str, merged: str) -> bool:
+    """Fast-forward main onto the finalized commit when provably lossless.
+
+    Two safe states: a clean tree (plain ff), or a tree that byte-matches the
+    verified merged snapshot (legacy in-place resolution — everything is
+    already inside the commit, so parking it in a stash loses nothing).
+    Anything else leaves installation to the operator; --commit prints the
+    manual step in that case.
+    """
+    if _current_branch(repo) != "main":
+        return False
+    clean = not _git(repo, "status", "--porcelain", check=False).stdout.strip()
+    matches = (_git(repo, "diff", "--quiet", merged, check=False).returncode == 0
+               and _git(repo, "diff", "--cached", "--quiet", merged,
+                        check=False).returncode == 0)
+    if not (clean or matches):
+        return False
+    if not clean:
+        # recoverable, not destructive: the superseded staged copy goes to a stash
+        _git(repo, "stash", "push", "-q", "-m",
+             f"absorb {oid[:12]}: superseded staged copy", check=False)
+    return _git(repo, "merge", "--ff-only", oid, check=False).returncode == 0
 
 
 def abort(repo: str, tag: str | None = None) -> None:
